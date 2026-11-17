@@ -9,7 +9,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 1
 
-- **Fecha:** 2026-11-17
+- **Fecha:** 2026-11-07
 - **Prompt o sugerencia:** Definir en `README.md` el contrato formal de `extraer_monto(texto: str) -> int` y crear en `tests/test_parser_montos.py` las 5 pruebas unitarias en rojo (2 casos normales, 2 casos límite y 1 caso de error por monto ambiguo) dejando `src/parser_montos.py` únicamente con `raise NotImplementedError`.
 - **Decisión:** Aceptada
 - **Por qué:** Cumple estrictamente el ciclo TDD exigido en la Semana 5 (escribir el contrato y las pruebas antes que la implementación) y asegura desde el primer commit que `tests/test_parser_montos.py` cumpla el estándar PEP 8 para no tener que modificarlo en fases posteriores.
@@ -18,7 +18,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 2
 
-- **Fecha:** 2026-11-17
+- **Fecha:** 2026-11-07
 - **Prompt o sugerencia:** El asistente evaluó la posibilidad de integrar una llamada a un modelo de lenguaje (API externa) o librerías de procesamiento de lenguaje natural para interpretar jerga monetaria y estructurar de una vez la base de datos SQLite.
 - **Decisión:** Rechazada
 - **Por qué:** Rompería el alcance estricto de la Semana 5 (que exige implementar únicamente la unidad funcional de `HU-02`), introduciría dependencias externas innecesarias para un problema resoluble de forma determinista con la librería estándar (`re`) y agregaría riesgos de seguridad con claves `.env`.
@@ -27,7 +27,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 3
 
-- **Fecha:** 2026-11-17
+- **Fecha:** 2026-11-07
 - **Prompt o sugerencia:** Usar una expresión regular básica `r"(\d+)\s*(lucas?|mil)?"` para extraer los dígitos y el multiplicador coloquial del texto ingresado.
 - **Decisión:** Aceptada con cambios
 - **Por qué:** Una expresión regular simple `(\d+)` dividiría erróneamente cifras con punto separador de miles como `"4.500"` en dos números (`"4"` y `"500"`), incumpliendo el caso límite del contrato. Se ajustó el patrón a `r"(?<!\d)(\d{1,3}(?:\.\d{3})+|\d+)(?:\s*(lucas?|mil)\b)?"` y se agregó la limpieza del punto antes de convertir a `int`.
@@ -36,7 +36,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 4
 
-- **Fecha:** 2026-11-17
+- **Fecha:** 2026-11-07                                                 
 - **Prompt o sugerencia:** Lanzar distintos mensajes de `ValueError` según la causa del fallo (por ejemplo, `"Texto vacío"` cuando la cadena no tiene caracteres y `"Monto ambiguo..."` cuando no hay dígitos).
 - **Decisión:** Aceptada con cambios
 - **Por qué:** El Escenario 2 de los criterios de aceptación de `HU-02` y el contrato definido en `README.md` especifican un mensaje único y estandarizado para cualquier entrada que no permita determinar un monto en cifras numéricas: `"Monto ambiguo. Por favor indique el valor en cifras numéricas"`. Se ajustó la validación para unificar la excepción e incluir la detección explícita de cuantificadores fraccionarios como `"media luca"`.
@@ -45,7 +45,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 5
 
-- **Fecha:** 2026-11-17
+- **Fecha:** 2026-11-07
 - **Prompt o sugerencia:** Refactorizar `src/parser_montos.py` extrayendo constantes de nivel de módulo (`MENSAJE_MONTO_AMBIGUO`, `FACTOR_MILES`, `MULTIPLICADORES_MILES`, patrones regex precompilados) y dividiendo la lógica en tres funciones auxiliares privadas (`_normalizar_texto_entrada`, `_extraer_componentes_monto`, `_calcular_valor_entero`) con docstrings y anotaciones de tipos.
 - **Decisión:** Aceptada
 - **Por qué:** Elimina los valores mágicos (`1000`, cadenas literales repetidas), aplica el principio de responsabilidad única (SRP) manteniendo intacta la firma pública del contrato y permite cumplir el requisito no funcional de mantenibilidad (`RNF-05 >= 9.0/10` en `pylint`) sin tocar ni una línea de `tests/test_parser_montos.py`.
