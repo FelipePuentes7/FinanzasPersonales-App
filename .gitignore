@@ -1,0 +1,20 @@
+# Variables de entorno y secretos (RNF de Seguridad)
+.env
+.env.*
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Caché de Python y pruebas
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Base de datos local SQLite
+*.db
+*.sqlite3
