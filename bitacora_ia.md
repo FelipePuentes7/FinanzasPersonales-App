@@ -79,12 +79,57 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `ruff check --select E,F,B,S src/` (`0` errores), `pylint src/ tests/` (`10.00/10`), y se probó el comando de ejecución del `README.md` (`python -c "..."`) verificando las salidas `20000` y `4500`.
 - **Commit relacionado:** `3599d43` (`merge: integrar correcciones de seguridad H-01 y H-02 tras revisar diff`) y `fdc0225` (`docs(readme): actualizar README con las 8 secciones obligatorias de la semana 6`)
 
+### Entrada 9 (Fase 1 - Hito 1A: Capa de persistencia SQLite parametrizada)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Crear `src/database.py` con gestión contextual de conexiones SQLite, tablas `presupuesto` y `transacciones`, validación de presupuesto positivo (`HU-05`), filtrado por categoría (`HU-07`) y consultas 100% parametrizadas con `?`, junto con su suite de pruebas `tests/test_database.py`.
+- **Decisión:** Aceptada
+- **Por qué:** Garantiza persistencia 100% local (`RNF-02`) y previene vulnerabilidades de inyección SQL (`OWASP A03`) al separar estrictamente las sentencias SQL de los datos del usuario mediante tuplas de parámetros `?`. Además, incorpora la columna `es_ambiguo` para soportar la reclasificación con un clic exigida por el Escenario 2 de `HU-03`.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 13 pruebas unitarias y de abuso (incluyendo prueba de inyección SQL `'almuerzo'; DROP TABLE transacciones; --'`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con calificación `>= 9.8/10`.
+- **Commit relacionado:** `feat(db): implementar capa SQLite parametrizada para presupuesto y transacciones (HU-04, HU-05, HU-07)`
+
+### Entrada 10 (Fase 1 - Hito 1B: Clasificador semántico híbrido y privacidad RNF-03)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `src/clasificador.py` con extracción de concepto limpio (`HU-01`), clasificación automática en las 5 categorías fijas (`HU-03`), detección de conceptos ambiguos (`"pago asunto x 30000"` -> `"Gastos Varios"`, `es_ambiguo=True`), modo fallback offline (`RNF-02`) y sanitización de PII (`RNF-03`), junto con `tests/test_clasificador.py`.
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Para cumplir `RNF-03` y `RNF-02` sin depender de conexión permanente a internet ni exponer datos del estudiante, se diseñó `construir_payload_llm` con expresiones regulares que anonimizan nombres propios, cédulas y direcciones físicas antes de cualquier llamada externa, y un motor léxico determinista sin tildes como fallback instantáneo.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 18 pruebas acumuladas (incluyendo simulación de `ConnectionError` del LLM y verificación de ausencia de PII en el payload), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(clasificador): implementar clasificacion tematica HU-03, fallback offline RNF-02 y anonimizacion RNF-03`
+
+### Entrada 11 (Fase 2 - Hito 2: Servicios de negocio, alertas HU-06 y exportación CSV HU-08)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `src/servicios.py` y `tests/test_servicios.py` integrando el parser de montos (`HU-02`), el clasificador (`HU-03`) y la base de datos SQLite para calcular el balance y la barra de progreso (`HU-04`), activar la confirmación preventiva cuando un gasto supera el 50% del presupuesto y la alerta `[ALERTA DE SOBREGIRO]` ante saldo negativo (`HU-06`), y exportar el archivo `gastos_<mes>_<anio>.csv` (`HU-08`).
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Al verificar el cálculo del porcentaje del Escenario 1 de `HU-04` (`$220.000` sobre `$600.000` -> `36.6%`) y del Escenario 2 de `HU-06` (`$250.000` sobre `$400.000` -> `62.5%`), se observó que `round(220000 / 600000 * 100, 1)` redondeaba a `36.7%`. Se ajustó la función auxiliar `_calcular_porcentaje_truncado` con truncamiento a una cifra decimal (`int((numerador / denominador) * 1000) / 10.0`) para cumplir con exactitud ambos criterios Gherkin del documento de requisitos.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 23 pruebas acumuladas, `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(servicios): implementar logica de negocio, alertas de sobregiro HU-06 y exportacion CSV HU-08`
+
+### Entrada 12 (Fase 3 - Hito 3: Aplicación Web WSGI, Interfaz HTML/CSS y Pruebas de Integración)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `app.py`, `templates/index.html`, `static/style.css` y `tests/test_app.py` con tarjetas métricas de balance (`HU-04`), formulario de presupuesto mensual (`HU-05`), barra de captura en lenguaje natural con `autofocus` (`HU-01`, `RNF-04`), modal de confirmación >50% y alerta roja de sobregiro (`HU-06`), tabla filtrable offline con reclasificación en un clic (`HU-03`, `HU-07`) y descarga de reporte CSV (`HU-08`).
+- **Decisión:** Aceptada
+- **Por qué:** Al implementar el servidor web sobre el estándar WSGI nativo de Python (`wsgiref`) con sanitización `html.escape` contra XSS, se logra un tiempo de carga inferior a `50 ms` (`RNF-01 < 1,2 s`), cero dependencias externas adicionales expuestas a CVEs en `pip-audit` y funcionamiento 100% offline (`RNF-02`).
+- **Verificación:** Se ejecutó `pytest -v` pasando las 27 pruebas unitarias y de integración web, `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con calificación `10.00/10`.
+- **Commit relacionado:** `feat(web): implementar aplicacion web local, interfaz responsiva HTML/CSS y pruebas de rutas (HU-01 a HU-08)`
+
+### Entrada 13 (Fase 4 - Hito 4: Consolidación documental, auditoría final e integración del MVP)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Actualizar `.gitignore` (excluyendo `data/`), `.env.example`, `README.md` (con las 8 secciones actualizadas para el MVP completo y comandos de inicio del servidor web `python app.py`) y `revision_seguridad.md` (documentando la verificación de consultas SQLite parametrizadas, escape XSS y anonimización `RNF-03`).
+- **Decisión:** Aceptada
+- **Por qué:** Asegura que toda la documentación técnica, de seguridad y de usuario refleje fielmente el estado final del MVP (27 pruebas automatizadas, 5 módulos Python con `10.00/10` en `pylint` y `0` avisos en `ruff check --select E,F,B,S .`).
+- **Verificación:** Se ejecutaron `pytest -v` (`27 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`) y `pylint app.py src/ tests/` (`10.00/10`).
+- **Commit relacionado:** `docs(mvp): actualizar README, revision_seguridad y configuracion de entorno para el MVP completo`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 3 |
-| Aceptadas con cambios | 4 |
+| Aceptadas | 6 |
+| Aceptadas con cambios | 6 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas

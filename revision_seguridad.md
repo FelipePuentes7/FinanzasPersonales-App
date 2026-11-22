@@ -16,11 +16,11 @@ Commit revisado: `ab006fc` (código funcional de `src/parser_montos.py` del comm
 
 | Punto | ¿Aplica? | Resultado |
 |---|---|---|
-| Inyección (consultas con parámetros) | Parcialmente (no hay base de datos SQL aún, pero sí evaluación de entrada de usuario con expresiones regulares) | No existen consultas SQL ni ejecución de comandos (`eval`, `subprocess`). Se corrigió evasión de signos negativos en el parser léxico (ver `H-01`). |
-| Secretos (código, historial, .gitignore, .env.example) | Sí | Sin claves expuestas en el código ni en el historial (`git log -p`). `.env` está protegido en `.gitignore` y se creó `.env.example` (ver `H-03` / commit `19de0e3`). |
-| Contraseñas (scrypt, bcrypt o argon2 con sal) | No, porque el incremento actual (`HU-02`) es un módulo de dominio para normalización de montos y aún no gestiona usuarios ni credenciales. | No aplica en este incremento. Se implementará con `argon2`/`bcrypt` cuando se desarrolle el módulo de autenticación. |
-| Control de acceso (rol verificado y prueba de abuso) | Parcialmente (no hay roles ni sesiones web aún, pero sí frontera de validación y pruebas de abuso sobre la API del módulo) | Se agregaron validaciones de frontera y 2 pruebas de abuso (`test_extraer_monto_abuso_monto_negativo` y `test_extraer_monto_abuso_longitud_excesiva`, ver `H-01` y `H-02`). |
-| Dependencias (existen, necesarias, versión fijada, pip-audit) | Sí | Se fijaron versiones exactas (`==`) en `requirements.txt` y `pip-audit` confirmó `0` vulnerabilidades (ver `H-03` / commit `19de0e3`). |
+| Inyección (consultas con parámetros) | Sí (SQLite local en `src/database.py`, parser regex en `src/parser_montos.py` y escape HTML en `app.py`) | Todas las sentencias SQL en `src/database.py` usan parámetros `?` (verificado con prueba de inyección SQL en `tests/test_database.py`). En `app.py` se aplica `html.escape` contra XSS y en `src/parser_montos.py` se mitigó `H-01`. |
+| Secretos (código, historial, .gitignore, .env.example) | Sí | Sin claves expuestas en el código ni en el historial (`git log -p`). `.env` y `data/` están en `.gitignore`, existe `.env.example` y `src/clasificador.py` anonimiza PII (`RNF-03`). |
+| Contraseñas (scrypt, bcrypt o argon2 con sal) | No, porque la aplicación es una herramienta monousuario de ejecución 100% local (sección 7 de requisitos descarta autenticación por sesión). | No aplica al alcance del proyecto por diseño monousuario local. |
+| Control de acceso (rol verificado y prueba de abuso) | Parcialmente (frontera de validación de dominio y pruebas de abuso sobre entradas web y base de datos) | Se implementaron validaciones de frontera y pruebas de abuso para montos negativos (`H-01`), payloads masivos DoS (`H-02`), presupuestos negativos (`HU-05`), inyección SQL y exportación CSV vacía (`HU-08`). |
+| Dependencias (existen, necesarias, versión fijada, pip-audit) | Sí | Versiones exactas (`==`) fijadas en `requirements.txt` y `pip-audit` confirmó `0` vulnerabilidades (`No known vulnerabilities found`). |
 
 ## 2. Tabla de hallazgos
 
