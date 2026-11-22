@@ -1,17 +1,19 @@
 # Variables de entorno y secretos (RNF de Seguridad)
 .env
 .env.*
+!.env.example
 
 # Entornos virtuales
 venv/
 .venv/
 env/
 
-# Caché de Python y pruebas
+# Caché de Python, linter y pruebas
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
