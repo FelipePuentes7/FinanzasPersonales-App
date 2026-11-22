@@ -88,12 +88,21 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 13 pruebas unitarias y de abuso (incluyendo prueba de inyección SQL `'almuerzo'; DROP TABLE transacciones; --'`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con calificación `>= 9.8/10`.
 - **Commit relacionado:** `feat(db): implementar capa SQLite parametrizada para presupuesto y transacciones (HU-04, HU-05, HU-07)`
 
+### Entrada 10 (Fase 1 - Hito 1B: Clasificador semántico híbrido y privacidad RNF-03)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `src/clasificador.py` con extracción de concepto limpio (`HU-01`), clasificación automática en las 5 categorías fijas (`HU-03`), detección de conceptos ambiguos (`"pago asunto x 30000"` -> `"Gastos Varios"`, `es_ambiguo=True`), modo fallback offline (`RNF-02`) y sanitización de PII (`RNF-03`), junto con `tests/test_clasificador.py`.
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Para cumplir `RNF-03` y `RNF-02` sin depender de conexión permanente a internet ni exponer datos del estudiante, se diseñó `construir_payload_llm` con expresiones regulares que anonimizan nombres propios, cédulas y direcciones físicas antes de cualquier llamada externa, y un motor léxico determinista sin tildes como fallback instantáneo.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 18 pruebas acumuladas (incluyendo simulación de `ConnectionError` del LLM y verificación de ausencia de PII en el payload), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(clasificador): implementar clasificacion tematica HU-03, fallback offline RNF-02 y anonimizacion RNF-03`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
 | Aceptadas | 4 |
-| Aceptadas con cambios | 4 |
+| Aceptadas con cambios | 5 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas
