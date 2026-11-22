@@ -79,11 +79,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `ruff check --select E,F,B,S src/` (`0` errores), `pylint src/ tests/` (`10.00/10`), y se probó el comando de ejecución del `README.md` (`python -c "..."`) verificando las salidas `20000` y `4500`.
 - **Commit relacionado:** `3599d43` (`merge: integrar correcciones de seguridad H-01 y H-02 tras revisar diff`) y `fdc0225` (`docs(readme): actualizar README con las 8 secciones obligatorias de la semana 6`)
 
+### Entrada 9 (Fase 1 - Hito 1A: Capa de persistencia SQLite parametrizada)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Crear `src/database.py` con gestión contextual de conexiones SQLite, tablas `presupuesto` y `transacciones`, validación de presupuesto positivo (`HU-05`), filtrado por categoría (`HU-07`) y consultas 100% parametrizadas con `?`, junto con su suite de pruebas `tests/test_database.py`.
+- **Decisión:** Aceptada
+- **Por qué:** Garantiza persistencia 100% local (`RNF-02`) y previene vulnerabilidades de inyección SQL (`OWASP A03`) al separar estrictamente las sentencias SQL de los datos del usuario mediante tuplas de parámetros `?`. Además, incorpora la columna `es_ambiguo` para soportar la reclasificación con un clic exigida por el Escenario 2 de `HU-03`.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 13 pruebas unitarias y de abuso (incluyendo prueba de inyección SQL `'almuerzo'; DROP TABLE transacciones; --'`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con calificación `>= 9.8/10`.
+- **Commit relacionado:** `feat(db): implementar capa SQLite parametrizada para presupuesto y transacciones (HU-04, HU-05, HU-07)`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 3 |
+| Aceptadas | 4 |
 | Aceptadas con cambios | 4 |
 | Rechazadas | 1 |
 
