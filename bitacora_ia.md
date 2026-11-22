@@ -115,11 +115,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 27 pruebas unitarias y de integración web, `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con calificación `10.00/10`.
 - **Commit relacionado:** `feat(web): implementar aplicacion web local, interfaz responsiva HTML/CSS y pruebas de rutas (HU-01 a HU-08)`
 
+### Entrada 13 (Fase 4 - Hito 4: Consolidación documental, auditoría final e integración del MVP)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Actualizar `.gitignore` (excluyendo `data/`), `.env.example`, `README.md` (con las 8 secciones actualizadas para el MVP completo y comandos de inicio del servidor web `python app.py`) y `revision_seguridad.md` (documentando la verificación de consultas SQLite parametrizadas, escape XSS y anonimización `RNF-03`).
+- **Decisión:** Aceptada
+- **Por qué:** Asegura que toda la documentación técnica, de seguridad y de usuario refleje fielmente el estado final del MVP (27 pruebas automatizadas, 5 módulos Python con `10.00/10` en `pylint` y `0` avisos en `ruff check --select E,F,B,S .`).
+- **Verificación:** Se ejecutaron `pytest -v` (`27 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`) y `pylint app.py src/ tests/` (`10.00/10`).
+- **Commit relacionado:** `docs(mvp): actualizar README, revision_seguridad y configuracion de entorno para el MVP completo`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 5 |
+| Aceptadas | 6 |
 | Aceptadas con cambios | 6 |
 | Rechazadas | 1 |
 

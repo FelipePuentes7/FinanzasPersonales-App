@@ -1,4 +1,4 @@
-# Variables de entorno y secretos (RNF de Seguridad)
+# Variables de entorno y secretos (RNF-03 de Seguridad)
 .env
 .env.*
 !.env.example
@@ -17,6 +17,7 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Base de datos local SQLite
+# Base de datos local SQLite (RNF-02)
+data/
 *.db
 *.sqlite3
