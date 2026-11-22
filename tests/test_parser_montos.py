@@ -36,3 +36,22 @@ def test_extraer_monto_error_monto_ambiguo_sin_cifras() -> None:
     )
     with pytest.raises(ValueError, match=mensaje_esperado):
         extraer_monto("gasté media luca en dulces")
+
+
+def test_extraer_monto_abuso_monto_negativo() -> None:
+    """Prueba de abuso (H-01): rechaza montos con signo negativo."""
+    mensaje_esperado = (
+        r"^Monto ambiguo\. Por favor indique el valor en cifras numéricas$"
+    )
+    with pytest.raises(ValueError, match=mensaje_esperado):
+        extraer_monto("gasté -20 lucas en almuerzo")
+
+
+def test_extraer_monto_abuso_longitud_excesiva() -> None:
+    """Prueba de abuso (H-02): rechaza entradas masivas previniendo DoS."""
+    mensaje_esperado = (
+        r"^Monto ambiguo\. Por favor indique el valor en cifras numéricas$"
+    )
+    payload_masivo = "20 lucas " + ("a" * 500)
+    with pytest.raises(ValueError, match=mensaje_esperado):
+        extraer_monto(payload_masivo)
