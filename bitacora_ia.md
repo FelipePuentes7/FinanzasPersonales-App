@@ -97,12 +97,21 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 18 pruebas acumuladas (incluyendo simulación de `ConnectionError` del LLM y verificación de ausencia de PII en el payload), `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(clasificador): implementar clasificacion tematica HU-03, fallback offline RNF-02 y anonimizacion RNF-03`
 
+### Entrada 11 (Fase 2 - Hito 2: Servicios de negocio, alertas HU-06 y exportación CSV HU-08)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `src/servicios.py` y `tests/test_servicios.py` integrando el parser de montos (`HU-02`), el clasificador (`HU-03`) y la base de datos SQLite para calcular el balance y la barra de progreso (`HU-04`), activar la confirmación preventiva cuando un gasto supera el 50% del presupuesto y la alerta `[ALERTA DE SOBREGIRO]` ante saldo negativo (`HU-06`), y exportar el archivo `gastos_<mes>_<anio>.csv` (`HU-08`).
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Al verificar el cálculo del porcentaje del Escenario 1 de `HU-04` (`$220.000` sobre `$600.000` -> `36.6%`) y del Escenario 2 de `HU-06` (`$250.000` sobre `$400.000` -> `62.5%`), se observó que `round(220000 / 600000 * 100, 1)` redondeaba a `36.7%`. Se ajustó la función auxiliar `_calcular_porcentaje_truncado` con truncamiento a una cifra decimal (`int((numerador / denominador) * 1000) / 10.0`) para cumplir con exactitud ambos criterios Gherkin del documento de requisitos.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 23 pruebas acumuladas, `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(servicios): implementar logica de negocio, alertas de sobregiro HU-06 y exportacion CSV HU-08`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
 | Aceptadas | 4 |
-| Aceptadas con cambios | 5 |
+| Aceptadas con cambios | 6 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas
