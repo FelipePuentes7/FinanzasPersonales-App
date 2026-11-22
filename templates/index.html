@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanzasPersonales-App | Asistente IA de Gastos</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <div class="brand">
+                <span class="brand-badge">COP</span>
+                <div>
+                    <h1>FinanzasPersonales-App</h1>
+                    <p class="subtitle">Asistente Web Local para Registro y Análisis de Gastos mediante IA</p>
+                </div>
+            </div>
+            <div class="status-pill">
+                <span class="dot-online"></span> SQLite Local &bull; Modo Híbrido / Offline Activo
+            </div>
+        </div>
+    </header>
+
+    <main class="container main-grid">
+        <!-- Columna Principal: Alertas, Captura Rápida, Tarjetas y Tabla -->
+        <section class="content-column">
+
+            {{BLOQUE_ALERTAS}}
+
+            {{BLOQUE_MODAL_CONFIRMACION}}
+
+            <!-- HU-01 / HU-02 / RNF-04: Captura en lenguaje natural en máximo 2 interacciones -->
+            <div class="card capture-card">
+                <div class="card-header-row">
+                    <h2>Registro Rápido en Lenguaje Natural</h2>
+                    <span class="hint-tag">Presione Enter o clic en Registrar</span>
+                </div>
+                <form action="/gastos" method="post" class="capture-form">
+                    <input
+                        type="text"
+                        id="input-gasto"
+                        name="texto"
+                        value="{{VALOR_INPUT_TEXTO}}"
+                        placeholder="Ej: almuerzo corriente 14000 | 20 lucas de gasolina para la moto | fotocopias 4.500"
+                        autocomplete="off"
+                        autofocus
+                        required
+                    >
+                    <button type="submit" class="btn btn-primary">Registrar</button>
+                </form>
+                <p class="capture-examples">
+                    Soporta jerga colombiana (<strong>lucas</strong>, <strong>luca</strong>, <strong>mil</strong>) y puntos de mil. Clasificación automática en 5 categorías.
+                </p>
+            </div>
+
+            <!-- HU-04: Panel Visual de Métricas Financieras -->
+            <div class="metrics-grid">
+                <article class="metric-card">
+                    <span class="metric-label">Presupuesto Mensual</span>
+                    <strong class="metric-value" id="metric-presupuesto">{{PRESUPUESTO_FMT}}</strong>
+                    <span class="metric-foot">Tope configurado (HU-05)</span>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-label">Total Gastado en el Mes</span>
+                    <strong class="metric-value" id="metric-gastado">{{TOTAL_GASTADO_FMT}}</strong>
+                    <span class="metric-foot">{{TOTAL_REGISTROS}} transacciones acumuladas</span>
+                </article>
+
+                <article class="metric-card {{CLASE_TARJETA_SALDO}}">
+                    <span class="metric-label">Saldo Restante Disponible</span>
+                    <strong class="metric-value" id="metric-saldo">{{SALDO_DISPONIBLE_FMT}}</strong>
+                    <span class="metric-foot">{{ESTADO_SALDO_TEXTO}}</span>
+                </article>
+            </div>
+
+            <!-- HU-04: Barra de Progreso de Consumo Presupuestal -->
+            <div class="card progress-card">
+                <div class="progress-header">
+                    <span>Consumo del Presupuesto Mensual</span>
+                    <strong>{{PORCENTAJE_CONSUMO}}%</strong>
+                </div>
+                <div class="progress-track" role="progressbar" aria-valuenow="{{PORCENTAJE_CONSUMO}}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-fill {{CLASE_BARRA_PROGRESO}}" style="width: {{PORCENTAJE_BARRA}}%;"></div>
+                </div>
+            </div>
+
+            <!-- HU-07 y HU-08: Tabla Interactiva Filtrable Offline y Exportación CSV -->
+            <div class="card table-card">
+                <div class="table-toolbar">
+                    <div>
+                        <h2>Historial de Transacciones</h2>
+                        <p class="subtotal-label">
+                            Categoría: <strong>{{CATEGORIA_ACTIVA}}</strong> &bull;
+                            Subtotal: <strong id="subtotal-filtrado">{{SUBTOTAL_FILTRADO_FMT}}</strong>
+                        </p>
+                    </div>
+
+                    <div class="toolbar-actions">
+                        <form action="/" method="get" class="filter-form">
+                            <label for="select-categoria" class="sr-only">Filtrar por categoría</label>
+                            <select id="select-categoria" name="categoria" onchange="this.form.submit()">
+                                {{OPCIONES_FILTRO_CATEGORIA}}
+                            </select>
+                            <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
+                        </form>
+
+                        <a href="/exportar-csv" class="btn btn-outline btn-sm" id="btn-exportar-csv">
+                            Descargar CSV
+                        </a>
+                    </div>
+                </div>
+
+                {{CONTENIDO_TABLA_TRANSACCIONES}}
+            </div>
+        </section>
+
+        <!-- Barra Lateral: Configuración de Presupuesto (HU-05) y Guía de Categorías -->
+        <aside class="sidebar-column">
+            <div class="card sidebar-card">
+                <h2>Ajustes de Presupuesto</h2>
+                <p class="sidebar-desc">
+                    Defina o actualice su tope de presupuesto mensual en pesos colombianos (COP) para calcular su saldo disponible y activar alertas preventivas.
+                </p>
+                <form action="/presupuesto" method="post" class="budget-form">
+                    <label for="input-presupuesto">Tope Mensual (COP)</label>
+                    <input
+                        type="number"
+                        id="input-presupuesto"
+                        name="monto_mensual"
+                        value="{{PRESUPUESTO_VALOR_ACTUAL}}"
+                        placeholder="Ej: 600000"
+                        step="1000"
+                        required
+                    >
+                    <button type="submit" class="btn btn-primary btn-block">Guardar Presupuesto</button>
+                </form>
+            </div>
+
+            <div class="card sidebar-card">
+                <h3>Categorías Automáticas (HU-03)</h3>
+                <ul class="category-legend">
+                    <li><span class="badge badge-moto">Transporte/Moto</span> Gasolina, repuestos, aceite, bus, taxi</li>
+                    <li><span class="badge badge-comida">Alimentación</span> Almuerzo, corriente, café, mercado</li>
+                    <li><span class="badge badge-estudio">Estudio</span> Fotocopias, taller, libros, semestre</li>
+                    <li><span class="badge badge-ocio">Ocio</span> Cine, salidas, chaqueta, ropa, juegos</li>
+                    <li><span class="badge badge-varios">Gastos Varios</span> Conceptos generales o por reclasificar</li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>FinanzasPersonales-App &bull; Andrés Felipe Puentes &bull; Persistencia Local SQLite &amp; Arquitectura Limpia</p>
+        </div>
+    </footer>
+</body>
+</html>

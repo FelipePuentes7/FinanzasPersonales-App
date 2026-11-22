@@ -106,11 +106,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 23 pruebas acumuladas, `ruff check --select E,F,B,S .` con `0` avisos y `pylint src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(servicios): implementar logica de negocio, alertas de sobregiro HU-06 y exportacion CSV HU-08`
 
+### Entrada 12 (Fase 3 - Hito 3: Aplicación Web WSGI, Interfaz HTML/CSS y Pruebas de Integración)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** Implementar `app.py`, `templates/index.html`, `static/style.css` y `tests/test_app.py` con tarjetas métricas de balance (`HU-04`), formulario de presupuesto mensual (`HU-05`), barra de captura en lenguaje natural con `autofocus` (`HU-01`, `RNF-04`), modal de confirmación >50% y alerta roja de sobregiro (`HU-06`), tabla filtrable offline con reclasificación en un clic (`HU-03`, `HU-07`) y descarga de reporte CSV (`HU-08`).
+- **Decisión:** Aceptada
+- **Por qué:** Al implementar el servidor web sobre el estándar WSGI nativo de Python (`wsgiref`) con sanitización `html.escape` contra XSS, se logra un tiempo de carga inferior a `50 ms` (`RNF-01 < 1,2 s`), cero dependencias externas adicionales expuestas a CVEs en `pip-audit` y funcionamiento 100% offline (`RNF-02`).
+- **Verificación:** Se ejecutó `pytest -v` pasando las 27 pruebas unitarias y de integración web, `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con calificación `10.00/10`.
+- **Commit relacionado:** `feat(web): implementar aplicacion web local, interfaz responsiva HTML/CSS y pruebas de rutas (HU-01 a HU-08)`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 4 |
+| Aceptadas | 5 |
 | Aceptadas con cambios | 6 |
 | Rechazadas | 1 |
 
