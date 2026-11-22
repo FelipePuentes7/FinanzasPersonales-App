@@ -36,7 +36,7 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 
 ### Entrada 4
 
-- **Fecha:** 2026-11-07                                                 
+- **Fecha:** 2026-11-07
 - **Prompt o sugerencia:** Lanzar distintos mensajes de `ValueError` según la causa del fallo (por ejemplo, `"Texto vacío"` cuando la cadena no tiene caracteres y `"Monto ambiguo..."` cuando no hay dígitos).
 - **Decisión:** Aceptada con cambios
 - **Por qué:** El Escenario 2 de los criterios de aceptación de `HU-02` y el contrato definido en `README.md` especifican un mensaje único y estandarizado para cualquier entrada que no permita determinar un monto en cifras numéricas: `"Monto ambiguo. Por favor indique el valor en cifras numéricas"`. Se ajustó la validación para unificar la excepción e incluir la detección explícita de cuantificadores fraccionarios como `"media luca"`.
@@ -52,21 +52,48 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` (`5 passed`), `pylint src/ tests/` obteniendo `10.00/10`, y `git status` confirmando que el archivo de pruebas no fue modificado.
 - **Commit relacionado:** `ef6dfe1` (`refactor(hu-02): extraer constantes y funciones privadas en parser_montos cumpliendo PEP 8 (10/10 pylint)`)
 
+### Entrada 6 (Semana 6 — Segunda revisión de seguridad con IA)
+
+- **Fecha:** 2026-11-14
+- **Prompt o sugerencia:** *"Revisa todo el código actual (`src/` y `tests/`) frente a los 5 criterios obligatorios de la Semana 6 (Inyección, Secretos, Contraseñas, Control de acceso y Dependencias). Entrega una tabla con Archivo/Línea, Severidad y Categoría, separando Problemas Reales de Sospechas / Falsos Positivos, y señala al menos 1 aspecto importante que la revisión automática no detectó."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Se aceptaron los hallazgos reales verificados en el código: evasión de signos negativos en la expresión regular (`H-01`), falta de límite máximo de longitud contra ataques DoS/límite de 4.300 dígitos de `int()` (`H-02`) y dependencias sin versión exacta junto con la excepción `!.env.example` en `.gitignore` (`H-03`). En cambio, se descartaron tras verificación manual las sospechas de *Catastrophic Backtracking* ReDoS (`FP-02`), de `AttributeError` con `None` (`FP-03`) y los 5 avisos `S101` (`assert`) de `ruff` en `tests/` (`FP-01`).
+- **Verificación:** Se comprobó cada hallazgo ejecutando `ruff check --select E,F,B,S .`, `pip-audit -r requirements.txt` (`No known vulnerabilities found`) y pruebas manuales con `"-20 lucas"` y cadenas masivas, documentando toda la clasificación en `revision_seguridad.md`.
+- **Commit relacionado:** `19de0e3` (`chore(sec): configurar ruff (E,F,B,S), fijar versiones en requirements.txt y agregar .env.example`) y `191ef2e` (`docs(sec): diligenciar informe revision_seguridad.md con hallazgos, verificacion IA y commits`)
+
+### Entrada 7 (Semana 6 — Corrección de hallazgos H-01 y H-02 y pruebas de abuso)
+
+- **Fecha:** 2026-11-14
+- **Prompt o sugerencia:** Corregir en `src/parser_montos.py` los hallazgos `H-01` (rechazo de montos con signo negativo mediante `PATRON_SIGNO_NEGATIVO`) y `H-02` (cota superior `LONGITUD_MAXIMA_TEXTO = 280` en `_normalizar_texto_entrada`), agregando 2 pruebas nuevas de abuso al final de `tests/test_parser_montos.py` sin alterar ninguna de las 5 pruebas de la Semana 5.
+- **Decisión:** Aceptada
+- **Por qué:** Cierra las vulnerabilidades de validación de entrada (`CWE-20`) y consumo no controlado de recursos (`CWE-400`) cumpliendo estrictamente el mensaje de error del contrato de `HU-02` y la regla de oro de no modificar pruebas existentes para que pasen.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 7 pruebas (`7 passed in 0.04s`) y se inspeccionó `git diff tests/test_parser_montos.py` confirmando que las líneas 1 a 38 de la Semana 5 permanecieron intactas (`+19/-0` líneas).
+- **Commit relacionado:** `87ce079` (`fix(sec): mitigar abuso por montos negativos (H-01) y longitud excesiva DoS (H-02) con pruebas de abuso`)
+
+### Entrada 8 (Semana 6 — Supervisión del agente en rama propia, docstrings y README)
+
+- **Fecha:** 2026-11-14
+- **Prompt o sugerencia:** Aplicar los cambios del agente en una rama dedicada (`fix/semana-6-seguridad`), completar los docstrings de las 4 funciones de `src/parser_montos.py` (qué hacen, qué reciben, qué devuelven y qué errores lanzan), revisar el `diff` con `ruff` y `pylint` antes de fusionar a `main`, y actualizar `README.md` con las 8 secciones obligatorias.
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Al supervisar el primer borrador de docstrings generado por el agente antes de hacer commit en la rama, `ruff check` detectó una línea de 89 caracteres (`E501` en `src/parser_montos.py:28`) y `pylint` advirtió una línea en blanco final extra (`C0305` en `tests/test_parser_montos.py`). Se corrigieron ambos avisos antes de confirmar el commit en `fix/semana-6-seguridad` e integrarlo a `main` con `git merge --no-ff`.
+- **Verificación:** Se ejecutaron `ruff check --select E,F,B,S src/` (`0` errores), `pylint src/ tests/` (`10.00/10`), y se probó el comando de ejecución del `README.md` (`python -c "..."`) verificando las salidas `20000` y `4500`.
+- **Commit relacionado:** `3599d43` (`merge: integrar correcciones de seguridad H-01 y H-02 tras revisar diff`) y `fdc0225` (`docs(readme): actualizar README con las 8 secciones obligatorias de la semana 6`)
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 2 |
-| Aceptadas con cambios | 2 |
+| Aceptadas | 3 |
+| Aceptadas con cambios | 4 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas
 
-Durante el diseño de la expresión regular para pasar de la fase Roja a la fase Verde, una captura ingenua de dígitos (`\d+`) habría interpretado el caso límite `"4.500"` como dos coincidencias numéricas separadas (`"4"` y `"500"`), haciendo fallar la prueba `test_extraer_monto_limite_punto_separador_miles` (que esperaba el entero `4500`). Asimismo, la prueba `test_extraer_monto_error_monto_ambiguo_sin_cifras` con la entrada `"gasté media luca en dulces"` obligó a validar explícitamente cuantificadores fraccionarios en texto y verificar la coincidencia exacta del mensaje de `ValueError` exigido por `HU-02`.
+Durante el diseño de la expresión regular en la Semana 5, una captura ingenua de dígitos (`\d+`) habría interpretado el caso límite `"4.500"` como dos coincidencias numéricas separadas (`"4"` y `"500"`), haciendo fallar la prueba `test_extraer_monto_limite_punto_separador_miles` (que esperaba el entero `4500`). Asimismo, en la Semana 6, las nuevas pruebas de abuso (`test_extraer_monto_abuso_monto_negativo` y `test_extraer_monto_abuso_longitud_excesiva`) permitieron comprobar que entradas maliciosas como `"gasté -20 lucas en almuerzo"` (que antes se convertía silenciosamente en `20000` positivo) o payloads de >500 caracteres ahora son rechazados de forma determinista con el `ValueError` exacto del contrato.
 
 ## Reflexión final (5 a 8 líneas)
 
-El asistente de IA fue de gran utilidad para estructurar rápidamente el contrato formal de `HU-02`, diseñar expresiones regulares precisas para jerga colombiana y aplicar refactorizaciones alineadas con PEP 8 hasta alcanzar 10.00/10 en `pylint`.
-Trabajar bajo un flujo TDD estricto invirtió positivamente el control de calidad: al fijar primero las 5 pruebas unitarias en el Commit 1, las pruebas actuaron como una red de seguridad inamovible que impidió introducir código innecesario o romper casos límite como `"1 LUCA"` y `"4.500"`.
-Además, la restricción de no modificar las pruebas durante el Commit 2 y el Commit 3 nos obligó a pensar cuidadosamente los casos borde y la calidad del archivo de tests desde el inicio.
-Para la próxima funcionalidad, mantendré esta misma disciplina de precompilar patrones y definir constantes de dominio desde la etapa de diseño para reducir la deuda técnica entre la implementación en verde y la refactorización.
+El asistente de IA fue de gran utilidad para estructurar el contrato formal de `HU-02`, diseñar expresiones regulares para jerga colombiana y realizar en la Semana 6 una segunda auditoría de seguridad que reveló un defecto lógico sutil con montos negativos (`H-01`) y riesgos de DoS por longitud (`H-02`).
+Trabajar bajo TDD estricto y supervisar al agente en una rama dedicada (`fix/semana-6-seguridad`) demostró que las sugerencias de la IA nunca deben aceptarse a ciegas: fue indispensable verificar manualmente cada hallazgo para descartar falsos positivos como la sospecha de ReDoS (`FP-02`) o los avisos `S101` en `pytest`.
+Además, la combinación de `pytest`, `ruff --select E,F,B,S`, `pylint` (`10.00/10`) y `pip-audit` actuó como un filtro objetivo que atrapó desde excesos de longitud de línea (`E501`) hasta bordes semánticos del dominio sin alterar ni una sola línea de las pruebas originales.
+Para los próximos incrementos con SQLite y endpoints web, mantendré este flujo de trabajo en ramas con revisión de `diff`, pruebas de abuso previas y auditoría continua de dependencias.
