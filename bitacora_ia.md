@@ -124,12 +124,39 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `pytest -v` (`27 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`) y `pylint app.py src/ tests/` (`10.00/10`).
 - **Commit relacionado:** `docs(mvp): actualizar README, revision_seguridad y configuracion de entorno para el MVP completo`
 
+### Entrada 14 (Semana 7 — Diseño de tablas de casos, particiones, valores límite y tabla de decisión con IA)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** *"Diseña en la Sección 1 de `registro_pruebas.md` las tablas de casos para `extraer_monto` (HU-02), `guardar_presupuesto` (HU-05), `clasificar_gasto` (HU-03) y la función multicondición `registrar_gasto_desde_texto` + `obtener_resumen_financiero` (HU-04 y HU-06), deduciendo cada valor esperado estrictamente de las historias de usuario (oráculo), incluyendo particiones válidas/inválidas, pares de valores límite, ambigüedades y la tabla de decisión de 6 reglas (R1 a R6)."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** Al revisar la propuesta inicial con las 5 preguntas de diseño (particiones, límites, origen del esperado, ambigüedades y reglas inventadas), se descartó una regla inventada que limitaba el presupuesto mensual máximo a `$10.000.000` (no existe en `HU-05`) y se documentaron explícitamente las ambigüedades reales: el tipo `bool` como subclase de `int` en Python, dos montos en una misma oración (`P-03`) y los bordes exactos del `50.0%` (`$200.000` vs `$200.001`) y saldo `$0` vs `-$1`.
+- **Verificación:** Se contrastó cada fila de `registro_pruebas.md` contra los criterios Gherkin de `Puentes_Andres_S3_Requisitos.pdf` confirmando que todos los esperados provienen de la regla de negocio y no del código.
+- **Commit relacionado:** `c2cd12b` (`docs(pruebas): definir reglas de negocio, particiones, limites y tabla de decision en registro_pruebas.md`)
+
+### Entrada 15 (Semana 7 — Generación, auditoría con las 3 preguntas y pruebas de mutación manual)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** *"Genera con pytest la suite `tests/test_reglas_negocio_s7.py` usando `@pytest.mark.parametrize` con comentario por fila, `pytest.approx` para porcentajes y `pytest.raises` con el mensaje exacto. Luego audita cada prueba con las 3 preguntas (oráculo, fortaleza ante ruptura, redundancia) y ejecuta pruebas de mutación manual en `src/`."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** En la revisión con las 3 preguntas se corrigió el porcentaje esperado de `HU-04` Escenario 1 (`36.6%` por truncamiento del oráculo en vez de `36.7%` por `round()`), se eliminaron filas redundantes de la misma partición `'lucas'` y se fortalecieron las aserciones. Además, al aplicar la mutación manual `M-04` (desactivar `PATRON_CUANTIFICADORES_AMBIGUOS` en `src/parser_montos.py:49`), ninguna prueba falló inicialmente porque `"gasté media luca en dulces"` carecía de dígitos; se agregó el caso `"gasté 1 y media lucas en dulces"` para matar al mutante.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 67 pruebas (`67 passed in 1.17s`), se comprobaron y revirtieron con `git restore` las 4 mutaciones (`M-01` a `M-04`) en la Sección 3 de `registro_pruebas.md`, y se validó `ruff check --select E,F,B,S .` (`0` avisos) y `pylint app.py src/ tests/` (`10.00/10`).
+- **Commit relacionado:** `a5b82cb`, `35cc138` y `5a174da` (`test(s7): documentar 4 pruebas de mutacion manual en registro_pruebas.md y agregar caso para M-04`)
+
+### Entrada 16 (Semana 7 — Generación de datos sintéticos locales con casos difíciles en fixture de pytest)
+
+- **Fecha:** 2026-11-22
+- **Prompt o sugerencia:** *"Genera un `@pytest.fixture(name='dataset_gastos_sinteticos_locales')` en `tests/test_reglas_negocio_s7.py` con datos sintéticos 100% ficticios de contexto colombiano, sin datos de personas reales, que incluya casos difíciles: tildes múltiples, letra 'ñ', apóstrofo, espacios redundantes, texto vacío y valores en cero."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** El borrador inicial del test sobre el fixture verificaba únicamente `assert len(extraer_concepto(frase)) > 0` (prueba débil según la Pregunta 2). Se ajustó cada tupla del fixture para incluir el concepto exacto esperado según `HU-01` (ej. `"Fotocopias taller de sistemas"`, `"Almuerzo en restaurante D'Luxe Bistró"`) y se verificó con igualdad exacta `assert extraer_concepto(frase) == concepto_esp`, garantizando además que solo se usaran datos comerciales ficticios (`"Cafetería El Estudiante S.A.S. (Ficticia)"`, NIT `900.000.000-1`, teléfono `300-000-0000`).
+- **Verificación:** Se ejecutó `pytest -v -k test_fixture_datos_sinteticos_locales_con_casos_dificiles` pasando al 100% y se documentó en la Sección 4 de `registro_pruebas.md`.
+- **Commit relacionado:** `a5b82cb` y `35cc138` (`test(s7): fortalecer aserciones tras auditoria de las 3 preguntas y documentar secciones 2 y 4`)
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
 | Aceptadas | 6 |
-| Aceptadas con cambios | 6 |
+| Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas
