@@ -23,10 +23,10 @@ Según la historia de usuario **`HU-02`** (*"Como estudiante universitario, quie
 | Partición válida | Cifra directa sin modismo | `"almuerzo corriente 14000"` | `14000` | `test_extraer_monto_particiones_y_limites_validos[almuerzo corriente 14000-14000]` |
 | Límite (Borde inferior positivo) | Primer valor positivo válido (`monto = 1`) | `"ajuste 1"` | `1` | `test_extraer_monto_particiones_y_limites_validos[ajuste 1-1]` |
 | Límite (Borde inferior con modismo) | Unidad mínima en mayúsculas (`1 LUCA`) | `"1 LUCA"` | `1000` | `test_extraer_monto_particiones_y_limites_validos[1 LUCA-1000]` |
-| Límite (Borde superior de longitud) | Último largo permitido (`len = 280`) | `"1000 " + ("a" * 275)` | `1000` | `test_extraer_monto_limite_longitud_exacta_280` |
+| Límite (Borde superior de longitud) | Último largo permitido (`len = 280`) | `"1000 " + ("a" * 275)` | `1000` | `test_extraer_monto_particiones_y_limites_validos[texto_entrada6-1000]` |
 | Límite (Borde inferior inválido) | Último valor no positivo (`monto = 0`) | `"descuento 0"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[descuento 0]` |
 | Límite (Borde negativo) | Primer entero negativo (`monto = -1`) | `"ajuste -1"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[ajuste -1]` |
-| Límite (Borde longitud excedida) | Primer largo inválido (`len = 281`) | `"1000 " + ("a" * 276)` | `ValueError` | `test_extraer_monto_limite_longitud_281_falla` |
+| Límite (Borde longitud excedida) | Primer largo inválido (`len = 281`) | `"1000 " + ("a" * 276)` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[texto_invalido3]` |
 | Partición inválida | Fracción coloquial sin dígitos (`HU-02` Esc. 2) | `"gasté media luca en dulces"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[gasté media luca en dulces]` |
 | Partición inválida | Múltiples montos en una frase (`P-03`) | `"almuerzo 15 mil y gasolina 10 mil"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[almuerzo 15 mil y gasolina 10 mil]` |
 | Partición inválida | Texto vacío o solo espacios | `""` / `"   "` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[]` |
