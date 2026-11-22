@@ -124,7 +124,17 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ## 2. Pruebas de la IA descartadas o corregidas
 
-*(Se completará en la Fase 3 tras la auditoría crítica con las 3 preguntas de revisión).*
+**Prompt usado:** *"Genera con pytest la suite de pruebas en `tests/test_reglas_negocio_s7.py` a partir de las 4 reglas de negocio (oráculo) y las tablas de particiones, valores límite y tabla de decisión de `registro_pruebas.md`. Usa `@pytest.mark.parametrize` con comentario explicativo por fila, `pytest.approx` para porcentajes decimales y `pytest.raises` con el tipo y mensaje exacto de error, sin modificar el código fuente. Luego audita cada prueba con las 3 preguntas de revisión."* (Ver Entradas 14 y 15 en [`bitacora_ia.md`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/bitacora_ia.md)).
+
+| Prueba generada | Decisión | Por qué | En su lugar |
+|---|---|---|---|
+| `test_fixture_datos_sinteticos`: `assert len(extraer_concepto(frase)) > 0` | **Corregida** | **Pregunta 2 (Débil):** Solo comprobaba que la longitud fuera mayor a cero; pasaría aunque `extraer_concepto` no limpiara el monto numérico ni los espacios redundantes o devolviera siempre `"X"`. | Se agregó el concepto exacto del oráculo en cada tupla del fixture y se fortaleció con `assert extraer_concepto(frase) == concepto_esp` (ej. `"Fotocopias taller de sistemas"`). |
+| `test_tabla_decision_alertas_hu06[R3]`: esperaba porcentaje acumulado `36.7%` usando `round(220000/600000*100, 1)` | **Corregida** | **Pregunta 1 (El esperado no salía de la regla):** El Escenario 1 de `HU-04` especifica textualmente *"una barra de progreso al 36.6%"* (truncamiento a 1 decimal, no redondeo hacia arriba). | Se fijó el esperado según el oráculo de `HU-04` (`36.6%` para el acumulado y `2.3%` para el gasto individual de `$14.000` sobre `$600.000`) con `pytest.approx(..., abs=0.05)`. |
+| Filas extra en `test_extraer_monto_particiones_y_limites_validos`: `("10 lucas taxi", 10000)`, `("30 lucas mercado", 30000)` | **Descartada** | **Pregunta 3 (Redundante):** Pertenecen exactamente a la misma partición de equivalencia válida (entero positivo + `"lucas"` en minúsculas) ya cubierta por `("20 lucas de gasolina para la moto", 20000)`. | Se dejó un solo caso por partición de equivalencia y se priorizaron los pares de valores límite (`0` vs `1`, `-1` vs `1`, longitud `280` vs `281`). |
+| `test_extraer_monto_invalidos`: `with pytest.raises(Exception):` sin patrón `match` | **Corregida** | **Pregunta 2 (Débil):** Capturar `Exception` sin verificar el mensaje permitiría que la prueba pasara si el código lanzara `TypeError` o un mensaje distinto al exigido por `HU-02` Escenario 2. | Se exigió `with pytest.raises(ValueError, match=r"^Monto ambiguo\. Por favor indique el valor en cifras numéricas$"):`. |
+| `test_guardar_presupuesto_rechaza_tope_mayor_a_10_millones`: esperaba `ValueError` para `15000000` | **Descartada** | **Pregunta 1 (Regla inventada por la IA):** La historia `HU-05` solo exige que el presupuesto mensual sea *"un número positivo mayor a cero"*, sin definir ningún límite máximo superior. | Se descartó la restricción inventada y se probaron únicamente las particiones y bordes reales de `HU-05` (`0`, `-1`, `-50000`, `True`/`False` vs `1`, `600000`, `750000`). |
+
+**Decisión:** Conservada, Corregida o Descartada.
 
 ---
 
@@ -136,4 +146,12 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ## 4. Datos de prueba
 
-*(Se completará en las Fases 2 y 3 al construir y documentar el `@pytest.fixture` con datos sintéticos locales y casos difíciles).*
+**Origen:** Sintéticos generados con IA y curados manualmente en el fixture `@pytest.fixture(name="dataset_gastos_sinteticos_locales")` dentro de [`tests/test_reglas_negocio_s7.py`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/tests/test_reglas_negocio_s7.py). **Confirmo que no hay datos de personas reales** (se empleó el comercio ficticio `"Cafetería El Estudiante S.A.S. (Ficticia)"`, NIT ficticio `"900.000.000-1"` y teléfono ficticio `"300-000-0000"`).
+
+**Casos difíciles incluidos:**
+- **Tildes múltiples y puntuación:** `"alimentación: menú ejecutivo y café en cafetería 16.500"` (`16500`, `'Alimentación'`).
+- **Letra `ñ` repetida y jerga local:** `"reparación por daño de piñón y cañería de freno moto 48 lucas"` (`48000`, `'Transporte/Moto'`).
+- **Apóstrofo (`'`) en nombre comercial:** `"almuerzo en restaurante D'Luxe Bistró 22 mil"` (`22000`, `'Alimentación'`).
+- **Espacios en blanco redundantes (inicio, medio y fin):** `"   fotocopias   taller   de   sistemas   4.500   "` (`4500`, `'Estudio'`, concepto normalizado a `"Fotocopias taller de sistemas"`).
+- **Texto vacío y caracteres invisibles:** `""` y `"   \t  "` (verificados con `pytest.raises(ValueError)`).
+- **Valores numéricos en cero (`0`):** `"bono navideño de promoción 0"`, `"descuento 0"`, `"0 lucas en parqueadero"` y presupuesto `0` (verificados como partición/borde inválido con `pytest.raises(ValueError)`).

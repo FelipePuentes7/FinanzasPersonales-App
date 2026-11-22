@@ -46,6 +46,7 @@ def fixture_dataset_gastos_sinteticos_locales() -> dict[str, Any]:
                 16500,
                 "Alimentación",
                 False,
+                "Alimentación: menú ejecutivo y café en cafetería",
             ),
             # Caso difícil con letra 'ñ' (daño, piñón, cañería) y jerga 'lucas'
             (
@@ -53,6 +54,7 @@ def fixture_dataset_gastos_sinteticos_locales() -> dict[str, Any]:
                 48000,
                 "Transporte/Moto",
                 False,
+                "Reparación por daño de piñón y cañería de freno moto",
             ),
             # Caso difícil con apóstrofo (D'Luxe) y jerga 'mil'
             (
@@ -60,6 +62,7 @@ def fixture_dataset_gastos_sinteticos_locales() -> dict[str, Any]:
                 22000,
                 "Alimentación",
                 False,
+                "Almuerzo en restaurante D'Luxe Bistró",
             ),
             # Caso difícil con múltiples espacios al inicio, medio y final
             (
@@ -67,6 +70,7 @@ def fixture_dataset_gastos_sinteticos_locales() -> dict[str, Any]:
                 4500,
                 "Estudio",
                 False,
+                "Fotocopias taller de sistemas",
             ),
         ],
         "casos_invalidos_dificiles": [
@@ -232,12 +236,16 @@ def test_fixture_datos_sinteticos_locales_con_casos_dificiles(
     comercio = dataset_gastos_sinteticos_locales["contexto_ficticio"]["comercio"]
     assert "Ficticia" in comercio
 
-    for frase, monto_esp, cat_esp, amb_esp in dataset_gastos_sinteticos_locales[
-        "casos_validos_dificiles"
-    ]:
+    for (
+        frase,
+        monto_esp,
+        cat_esp,
+        amb_esp,
+        concepto_esp,
+    ) in dataset_gastos_sinteticos_locales["casos_validos_dificiles"]:
         assert extraer_monto(frase) == monto_esp
         assert clasificar_gasto(frase) == (cat_esp, amb_esp)
-        assert len(extraer_concepto(frase)) > 0
+        assert extraer_concepto(frase) == concepto_esp
 
     casos_inv = dataset_gastos_sinteticos_locales["casos_invalidos_dificiles"]
     for frase_invalida in casos_inv:
