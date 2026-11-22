@@ -129,6 +129,8 @@ def test_extraer_monto_particiones_y_limites_validos(
         "1000 " + ("a" * 276),
         # Partición inválida: fracción coloquial sin dígitos (HU-02 Escenario 2)
         "gasté media luca en dulces",
+        # Partición inválida (agregada tras mutación M-04): cifra + fracción 'media'
+        "gasté 1 y media lucas en dulces",
         # Partición inválida: múltiples montos en una misma oración (Ambigüedad P-03)
         "almuerzo 15 mil y gasolina 10 mil",
         # Partición inválida: cadena vacía

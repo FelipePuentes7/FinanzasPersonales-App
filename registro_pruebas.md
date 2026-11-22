@@ -28,6 +28,7 @@ Según la historia de usuario **`HU-02`** (*"Como estudiante universitario, quie
 | Límite (Borde negativo) | Primer entero negativo (`monto = -1`) | `"ajuste -1"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[ajuste -1]` |
 | Límite (Borde longitud excedida) | Primer largo inválido (`len = 281`) | `"1000 " + ("a" * 276)` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[texto_invalido3]` |
 | Partición inválida | Fracción coloquial sin dígitos (`HU-02` Esc. 2) | `"gasté media luca en dulces"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[gasté media luca en dulces]` |
+| Partición inválida (Mutación M-04) | Cifra combinada con cuantificador fraccionario (`1 y media lucas`) | `"gasté 1 y media lucas en dulces"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[gasté 1 y media lucas en dulces]` |
 | Partición inválida | Múltiples montos en una frase (`P-03`) | `"almuerzo 15 mil y gasolina 10 mil"` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[almuerzo 15 mil y gasolina 10 mil]` |
 | Partición inválida | Texto vacío o solo espacios | `""` / `"   "` | `ValueError` | `test_extraer_monto_particiones_y_limites_invalidos[]` |
 
@@ -140,7 +141,14 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ## 3. Romper el código a propósito
 
-*(Se completará en la Fase 4 tras introducir los 3 errores de mutación manual y verificar qué pruebas fallan).*
+Se introdujeron **4 errores intencionales (mutaciones manuales)** en el código fuente (`src/`), uno a la vez, ejecutando `pytest -v` tras cada cambio y revirtiéndolo inmediatamente con `git restore`:
+
+| Cambio introducido | Archivo y línea | ¿Alguna prueba falló? | Qué hice |
+|---|---|---|---|
+| **M-01:** Cambiar `>` por `>=` en el umbral del 50% del presupuesto (`monto >= presupuesto * 0.5`) | `src/servicios.py:137` | **Sí**, falló `test_limites_umbral_50_y_sobregiro[0-repuesto moto 200000-True-False-None-200000-50.0]` | Nada: la prueba de valor límite en el borde exacto del `50.0%` (`$200.000` sobre `$400.000`) detectó el error de inmediato. Revertí con `git restore src/servicios.py`. |
+| **M-02:** Cambiar `< 0` por `<= 0` en la condición de sobregiro (`(presupuesto - total_gastado) <= 0`) | `src/servicios.py:173` | **Sí**, falló `test_limites_umbral_50_y_sobregiro[320000-compra chaqueta 80000-True-False-None-0-20.0]` | Nada: la prueba de valor límite cuando el saldo restante queda exactamente en `$0` COP atrapó la falsa alerta de sobregiro. Revertí con `git restore src/servicios.py`. |
+| **M-03:** Cambiar `FACTOR_MILES: int = 1000` por `100` | `src/parser_montos.py:14` | **Sí**, fallaron 12 pruebas (entre ellas `test_extraer_monto_particiones_y_limites_validos[20 lucas...-20000]` y `[1 LUCA-1000]`) | Nada: las aserciones de valor exacto (`20000` vs `2000`) protegieron el cálculo. Revertí con `git restore src/parser_montos.py`. |
+| **M-04:** Desactivar la guarda `if PATRON_CUANTIFICADORES_AMBIGUOS.search(texto_normalizado):` reemplazándola por `if False:` | `src/parser_montos.py:49` | **No** inicialmente (`"gasté media luca en dulces"` seguía lanzando `ValueError` porque no tenía dígitos numéricos) | **Agregué el caso faltante** `"gasté 1 y media lucas en dulces"` en `test_extraer_monto_particiones_y_limites_invalidos` (cuando hay dígito `1` junto a la fracción `media`), verifiqué que con la mutación activa ahora **sí falla** (devolvía `1000` en vez de lanzar `ValueError`) y revertí `src/parser_montos.py` con `git restore`. |
 
 ---
 
