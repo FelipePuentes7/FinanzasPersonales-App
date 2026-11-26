@@ -232,11 +232,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest --cov=src -v` pasando las **88 pruebas** con **89% de cobertura** sobre `src/`, y `ruff check --select E,F,B,S .` con **`0` avisos** (`All checks passed!`).
 - **Commit relacionado:** `feat(v1.0-backend)` y `feat(v1.0-release): integrar descarga Excel .xlsx, modo oscuro, chips rapidos, edicion en tabla y cierre v1.0`
 
+### Entrada 26 (Funcionalidad Diferencial v1.0 — Simulador de Viabilidad de Compra "¿Puedo comprarlo?")
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Implementar `src/simulador.py`, los endpoints `/api/simular` y `/simulador/confirmar` en `app.py`, el modal interactivo en `templates/index.html` y la suite `tests/test_simulador.py` para evaluar compras de contado o a cuotas (2 a 36 meses) con semáforo de diagnóstico (VIABLE, CON PRECAUCIÓN, NO RECOMENDADO), alternativa inteligente automática y conversión en 1 clic a gasto o crédito."*
+- **Decisión:** Aceptada
+- **Por qué:** Brinda valor preventivo real al usuario antes de comprometer su liquidez: reutiliza `extraer_monto` para aceptar jerga (`"800 lucas"`), calcula sin mutar SQLite el impacto sobre el saldo del mes y la compromisión futura (gastos fijos + créditos activos + nueva cuota), sugiere automáticamente el plazo en cuotas o ahorro mensual cuando da Rojo/Amarillo y permite registrar la decisión en 1 clic.
+- **Verificación:** Se ejecutó `pytest -v` pasando las **97 pruebas** en verde (`97 passed`) y `ruff check --select E,F,B,S .` con **`0` avisos** (`All checks passed!`).
+- **Commit relacionado:** `feat(simulador): implementar simulador de viabilidad de compra con semaforo, sugerencia inteligente y conversion en 1 clic`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 14 |
+| Aceptadas | 15 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 

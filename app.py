@@ -45,6 +45,10 @@ from src.servicios import (
     registrar_ingreso_desde_texto,
     registrar_pago_cuota_credito,
 )
+from src.simulador import (
+    registrar_compra_simulada,
+    simular_viabilidad_compra,
+)
 
 DIRECTORIO_BASE: Path = Path(__file__).resolve().parent
 RUTA_PLANTILLA_INDEX: Path = DIRECTORIO_BASE / "templates" / "index.html"
@@ -1032,6 +1036,64 @@ def _procesar_post_pagar_cuota(
         )
 
 
+def _procesar_post_confirmar_simulacion(
+    formulario: dict[str, str],
+    ruta_db: str | Path,
+    usuario_id: int,
+    nombre_usuario: str,
+) -> str:
+    """Convierte en 1 clic la compra simulada en gasto o crédito."""
+    concepto = formulario.get("concepto", "")
+    valor = formulario.get("valor", "")
+    cuotas_raw = formulario.get("cuotas", "1").strip() or "1"
+    categoria = formulario.get("categoria") or None
+    periodo = formulario.get("periodo") or None
+    try:
+        res = registrar_compra_simulada(
+            concepto,
+            valor,
+            cuotas=int(cuotas_raw),
+            categoria=categoria,
+            usuario_id=usuario_id,
+            periodo=periodo,
+            ruta_db=ruta_db,
+        )
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion=str(res["mensaje"]),
+            tipo_alerta="exito",
+        )
+    except ValueError as err:
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion=str(err),
+            tipo_alerta="error",
+        )
+
+
+def _responder_json(
+    start_response: Callable[[str, list[tuple[str, str]]], None],
+    payload: dict[str, Any],
+    status: str = "200 OK",
+) -> list[bytes]:
+    """Serializa y envía una respuesta JSON UTF-8."""
+    cuerpo = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    start_response(
+        status,
+        [
+            ("Content-Type", "application/json; charset=utf-8"),
+            ("Content-Length", str(len(cuerpo))),
+        ],
+    )
+    return [cuerpo]
+
+
 def _responder_html(
     start_response: Callable[[str, list[tuple[str, str]]], None],
     html_str: str,
@@ -1072,6 +1134,7 @@ def crear_app(  # pylint: disable=too-many-statements
         "/gastos-fijos/aplicar": _procesar_post_aplicar_gasto_fijo,
         "/creditos": _procesar_post_crear_credito,
         "/creditos/pagar-cuota": _procesar_post_pagar_cuota,
+        "/simulador/confirmar": _procesar_post_confirmar_simulacion,
     }
 
     def aplicacion_wsgi(  # pylint: disable=too-many-return-statements
@@ -1175,6 +1238,26 @@ def crear_app(  # pylint: disable=too-many-statements
                 renderizar_vista_auth(es_registro=False),
                 extra_headers=[("Set-Cookie", cookie_clear)],
             )
+
+        if metodo == "POST" and ruta == "/api/simular":
+            form = _leer_formulario_post(environ)
+            try:
+                cuotas_val = int(form.get("cuotas", "1").strip() or "1")
+                resultado_sim = simular_viabilidad_compra(
+                    form.get("concepto", ""),
+                    form.get("valor", ""),
+                    cuotas=cuotas_val,
+                    usuario_id=usuario_id,
+                    periodo=form.get("periodo") or None,
+                    ruta_db=ruta_db,
+                )
+                return _responder_json(start_response, resultado_sim)
+            except ValueError as err:
+                return _responder_json(
+                    start_response,
+                    {"ok": False, "error": str(err)},
+                    status="400 Bad Request",
+                )
 
         if metodo == "GET" and ruta == "/exportar-excel":
             params = parse_qs(environ.get("QUERY_STRING", ""))

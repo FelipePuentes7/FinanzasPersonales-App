@@ -46,6 +46,9 @@
             </div>
 
             <div class="topbar-user">
+                <button type="button" id="btn-abrir-simulador" class="btn btn-primary btn-xs">
+                    Simular compra
+                </button>
                 <button type="button" id="btn-tema-toggle" class="btn btn-ghost btn-xs" aria-label="Alternar modo oscuro o claro">
                     Modo oscuro / claro
                 </button>
@@ -394,6 +397,93 @@
         </div>
     </footer>
 
+    <!-- Modal Simulador de Viabilidad de Compra ("¿Puedo comprarlo?") -->
+    <div id="modal-simulador" class="sim-modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sim-modal-title">
+        <div class="card sim-modal-card">
+            <div class="card-header-row">
+                <div>
+                    <h2 id="sim-modal-title">Simulador de compra: ¿Puedo comprarlo?</h2>
+                    <p class="card-sub">Evalúa el impacto en tu liquidez antes de gastar o endeudarte</p>
+                </div>
+                <button type="button" id="btn-cerrar-simulador" class="btn btn-ghost btn-xs">Cerrar &times;</button>
+            </div>
+
+            <form id="form-simulador" class="compact-form" style="border-top: none; padding-top: 0;">
+                <input type="hidden" id="sim-periodo" name="periodo" value="{{PERIODO_ACTIVO}}">
+                <div class="compact-row">
+                    <div>
+                        <label for="sim-concepto" class="sim-label">Producto o concepto</label>
+                        <input type="text" id="sim-concepto" name="concepto" placeholder="Ej: Llantas nuevas o Portátil" required>
+                    </div>
+                    <div>
+                        <label for="sim-valor" class="sim-label">Valor total (pesos o '800 lucas')</label>
+                        <input type="text" id="sim-valor" name="valor" placeholder="Ej: 800 lucas o 1.500.000" required>
+                    </div>
+                </div>
+                <div class="compact-row">
+                    <div>
+                        <label for="sim-cuotas" class="sim-label">Modalidad de pago</label>
+                        <select id="sim-cuotas" name="cuotas">
+                            <option value="1">De contado (1 solo pago)</option>
+                            <option value="2">2 cuotas mensuales</option>
+                            <option value="3">3 cuotas mensuales</option>
+                            <option value="6">6 cuotas mensuales</option>
+                            <option value="12">12 cuotas mensuales</option>
+                            <option value="18">18 cuotas mensuales</option>
+                            <option value="24">24 cuotas mensuales</option>
+                            <option value="36">36 cuotas mensuales</option>
+                        </select>
+                    </div>
+                    <div class="sim-submit-col">
+                        <button type="submit" class="btn btn-primary btn-block">Evaluar viabilidad</button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="sim-error-box" class="alert alert-error" hidden></div>
+
+            <div id="sim-resultado-box" class="sim-result-panel" hidden>
+                <div class="sim-semaforo-header">
+                    <span id="sim-badge-semaforo" class="sim-semaforo-pill">VIABLE</span>
+                    <span id="sim-cuota-resumen" class="tabular-nums"></span>
+                </div>
+                <p id="sim-explicacion" class="sim-explicacion-text"></p>
+
+                <div class="sim-comparison-grid">
+                    <div class="sim-stat-box">
+                        <span class="metric-label">Saldo actual</span>
+                        <strong id="sim-saldo-antes" class="tabular-nums">$0</strong>
+                    </div>
+                    <div class="sim-stat-box">
+                        <span class="metric-label">Saldo después de compra</span>
+                        <strong id="sim-saldo-despues" class="tabular-nums">$0</strong>
+                    </div>
+                    <div class="sim-stat-box">
+                        <span class="metric-label">Capacidad comprometida</span>
+                        <strong id="sim-pct-compromiso" class="tabular-nums">0%</strong>
+                    </div>
+                </div>
+
+                <div class="progress-track" style="margin: 0.65rem 0;">
+                    <div id="sim-barra-impacto" class="progress-fill" style="width: 0%;"></div>
+                </div>
+
+                <div id="sim-sugerencia-box" class="sim-suggestion-box"></div>
+
+                <form action="/simulador/confirmar" method="post" class="sim-confirm-form">
+                    <input type="hidden" name="periodo" value="{{PERIODO_ACTIVO}}">
+                    <input type="hidden" id="conf-concepto" name="concepto">
+                    <input type="hidden" id="conf-valor" name="valor">
+                    <input type="hidden" id="conf-cuotas" name="cuotas">
+                    <input type="hidden" id="conf-categoria" name="categoria">
+                    <button type="submit" class="btn btn-emerald btn-sm">
+                        Registrar compra ahora
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function() {
             const btnTema = document.getElementById("btn-tema-toggle");
@@ -417,6 +507,62 @@
                     }
                 });
             });
+
+            const modalSim = document.getElementById("modal-simulador");
+            const btnAbrirSim = document.getElementById("btn-abrir-simulador");
+            const btnCerrarSim = document.getElementById("btn-cerrar-simulador");
+            const formSim = document.getElementById("form-simulador");
+            if (btnAbrirSim && modalSim) {
+                btnAbrirSim.addEventListener("click", function() {
+                    modalSim.removeAttribute("hidden");
+                });
+            }
+            if (btnCerrarSim && modalSim) {
+                btnCerrarSim.addEventListener("click", function() {
+                    modalSim.setAttribute("hidden", "true");
+                });
+            }
+            if (formSim) {
+                formSim.addEventListener("submit", function(ev) {
+                    ev.preventDefault();
+                    const errBox = document.getElementById("sim-error-box");
+                    const resBox = document.getElementById("sim-resultado-box");
+                    const formData = new URLSearchParams(new FormData(formSim));
+                    fetch("/api/simular", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: formData.toString()
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (!data.ok) {
+                            errBox.textContent = data.error || "Error al simular";
+                            errBox.removeAttribute("hidden");
+                            resBox.setAttribute("hidden", "true");
+                            return;
+                        }
+                        errBox.setAttribute("hidden", "true");
+                        resBox.removeAttribute("hidden");
+                        const badge = document.getElementById("sim-badge-semaforo");
+                        badge.textContent = data.diagnostico;
+                        badge.className = "sim-semaforo-pill " + data.clase_semaforo;
+                        document.getElementById("sim-cuota-resumen").textContent =
+                            data.cuotas > 1
+                            ? (data.cuotas + " cuotas de " + data.valor_cuota_fmt + " / mes")
+                            : ("Pago único de " + data.monto_total_fmt);
+                        document.getElementById("sim-explicacion").textContent = data.explicacion;
+                        document.getElementById("sim-saldo-antes").textContent = data.saldo_actual_fmt;
+                        document.getElementById("sim-saldo-despues").textContent = data.nuevo_saldo_fmt;
+                        document.getElementById("sim-pct-compromiso").textContent = data.porcentaje_compromision + "%";
+                        document.getElementById("sim-barra-impacto").style.width = data.porcentaje_barra_impacto + "%";
+                        document.getElementById("sim-sugerencia-box").textContent = data.mensaje_sugerencia;
+                        document.getElementById("conf-concepto").value = data.concepto;
+                        document.getElementById("conf-valor").value = data.monto_total;
+                        document.getElementById("conf-cuotas").value = data.cuotas;
+                        document.getElementById("conf-categoria").value = data.categoria_sugerida;
+                    });
+                });
+            }
 
             if (typeof Chart === "undefined") return;
             const datosCat = {{DATOS_JSON_CATEGORIAS}};

@@ -1022,3 +1022,121 @@ tr.fila-ambigua {
 .footer-links a:hover {
     color: var(--primary);
 }
+
+/* Modal Simulador de Viabilidad de Compra */
+.sim-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 50;
+}
+
+.sim-modal-overlay[hidden] {
+    display: none;
+}
+
+.sim-modal-card {
+    width: 100%;
+    max-width: 620px;
+    margin-bottom: 0;
+}
+
+.sim-label {
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.sim-submit-col {
+    display: flex;
+    align-items: flex-end;
+}
+
+.sim-result-panel {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.sim-semaforo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+
+.sim-semaforo-pill {
+    display: inline-block;
+    padding: 0.24rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.semaforo-verde {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.semaforo-amarillo {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.semaforo-rojo {
+    background: #ffe4e6;
+    color: #9f1239;
+}
+
+.sim-explicacion-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.sim-comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.65rem;
+}
+
+@media (max-width: 560px) {
+    .sim-comparison-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sim-stat-box {
+    background: var(--bg-page);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.sim-suggestion-box {
+    background: var(--bg-subtle);
+    border-left: 3px solid var(--primary);
+    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 0.75rem 0;
+}
+
+.sim-confirm-form {
+    display: flex;
+    justify-content: flex-end;
+}

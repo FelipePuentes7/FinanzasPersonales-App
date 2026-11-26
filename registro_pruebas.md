@@ -162,6 +162,25 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ---
 
+### Regla 7 (Simulador de Viabilidad de Compra "¿Puedo comprarlo?"): `simular_viabilidad_compra` y `registrar_compra_simulada` (`src/simulador.py`)
+
+**Regla completa (el oráculo):**
+1. El simulador evalúa una compra potencial de valor $M > 0$ (en cifras o jerga como `'800 lucas'`) diferida en $C \in [1, 36]$ cuotas mensuales ($\text{Cuota} = \lceil M / C \rceil$) sin alterar la base de datos SQLite:
+   - **Verde (`VIABLE`):** El nuevo saldo disponible del mes es $\ge 15\%$ de la capacidad mensual total y la compromisión mensual proyectada ($\text{Fijos} + \text{Cuotas actuales} + \text{Nueva cuota}$) es $\le 50\%$.
+   - **Amarillo (`CON PRECAUCIÓN`):** El nuevo saldo disponible es $\ge 0$, pero queda por debajo del $15\%$ de la capacidad mensual o la compromisión mensual proyectada se ubica en $(50\%, 75\%]$.
+   - **Rojo (`NO RECOMENDADO / RIESGO DE SOBREGIRO`):** El nuevo saldo disponible es negativo ($< 0$) o la compromisión mensual supera el $75\%$. En estados Rojo o Amarillo, sugiere automáticamente el número de cuotas ($3..36$) en que pasaría a ser viable o el plan de ahorro mensual.
+2. Si el concepto está vacío, el monto es inválido/ambiguo, las cuotas están fuera de $[1, 36]$ o no hay presupuesto configurado, lanza `ValueError`.
+
+| Técnica | Partición o límite | Entrada | Esperado (Oráculo) | Prueba que lo cubre |
+|---|---|---|---|---|
+| Partición válida (Verde) | Compra de contado con saldo holgado y compromisión $\le 50\%$ | $P=2\text{M}$, fijo $=100\text{k}$, `"200 lucas"`, `cuotas=1` | `color='VERDE', diagnostico='VIABLE', pct=15.0%` | `test_simulador_compra_contado_viable_verde` |
+| Partición válida (Rojo $\to$ Verde) | Compra de contado que sobregira y sugerencia automática a cuotas | $P=1.5\text{M}$, `"1.800.000"`, `cuotas=1` $\to$ `cuotas=6` | Contado: `'ROJO'` (`-$300.000`); a 6 cuotas: `'VERDE'` (`$300.000/mes`) | `test_simulador_compra_contado_roja_y_alternativa_a_cuotas` |
+| Partición válida (Amarillo) | Compra a 3 cuotas con compromisión en $(50\%, 75\%]$ (`60%`) | $P=1\text{M}$, fijo $=450\text{k}$, `"450 lucas"`, `cuotas=3` | `color='AMARILLO', diagnostico='CON PRECAUCIÓN', pct=60.0%` | `test_simulador_diagnostico_amarillo_con_precaucion` |
+| Límites e inválidos | Cuotas fuera de $[1, 36]$ (`0`, `48`), concepto vacío y jerga ambigua | `cuotas=0`, `cuotas=48`, `"media luca"`, `-50000` | `ValueError` | `test_simulador_validaciones_de_error` |
+| Integración Web | Endpoint JSON `/api/simular` y conversión en 1 clic `/simulador/confirmar` | `"Kit de arrastre moto"`, `"300 lucas"`, `cuotas=3` | `status=200`, crea crédito `1/3` pagada e impacta saldo | `test_simulador_sin_presupuesto_y_endpoints_web_confirmacion` |
+
+---
+
 ## 2. Pruebas de la IA descartadas o corregidas
 
 **Prompt usado:** *"Genera con pytest la suite de pruebas en `tests/test_reglas_negocio_s7.py` a partir de las 4 reglas de negocio (oráculo) y las tablas de particiones, valores límite y tabla de decisión de `registro_pruebas.md`. Usa `@pytest.mark.parametrize` con comentario explicativo por fila, `pytest.approx` para porcentajes decimales y `pytest.raises` con el tipo y mensaje exacto de error, sin modificar el código fuente. Luego audita cada prueba con las 3 preguntas de revisión."* (Ver Entradas 14 y 15 en [`bitacora_ia.md`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/bitacora_ia.md)).
