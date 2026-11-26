@@ -144,6 +144,20 @@ def test_simulador_sin_presupuesto_y_endpoints_web_confirmacion(
         simular_viabilidad_compra("Viaje", "500 lucas", ruta_db=ruta_db)
 
     cliente = ClientePruebaWeb(crear_app(ruta_db))
+    resp_sin_sesion = cliente.post(
+        "/api/simular",
+        {"concepto": "Viaje", "valor": "500 lucas", "cuotas": "1"},
+    )
+    assert resp_sin_sesion.status_code == 401
+
+    cliente.post(
+        "/register",
+        {
+            "nombre": "Usuario Simulador",
+            "email": "simulador@bolsillo.co",
+            "password": "ClaveSimulador2026",
+        },
+    )
     cliente.post("/presupuesto", {"monto_mensual": "2000000", "periodo": "2026-11"})
 
     resp_api = cliente.post(

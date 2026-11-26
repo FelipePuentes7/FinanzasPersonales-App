@@ -158,7 +158,7 @@ class ClientePruebaWeb:
 def _extraer_usuario_sesion(
     environ: dict[str, Any],
     ruta_db: str | Path,
-) -> tuple[int, str]:
+) -> tuple[int | None, str]:
     """Obtiene el `(usuario_id, nombre_usuario)` activo desde la cookie de sesión."""
     raw_cookie = environ.get("HTTP_COOKIE", "")
     if raw_cookie:
@@ -172,7 +172,24 @@ def _extraer_usuario_sesion(
                     return int(usuario["id"]), str(usuario["nombre"])
             except ValueError:
                 pass
-    return 1, "Espacio Personal"
+    return None, ""
+
+
+def _redirigir_a(
+    start_response: Callable[[str, list[tuple[str, str]]], None],
+    destino: str = "/login",
+    extra_headers: list[tuple[str, str]] | None = None,
+) -> list[bytes]:
+    """Envía una redirección HTTP `302 Found` hacia la ruta indicada."""
+    cabeceras: list[tuple[str, str]] = [
+        ("Location", destino),
+        ("Content-Type", "text/html; charset=utf-8"),
+        ("Content-Length", "0"),
+    ]
+    if extra_headers:
+        cabeceras.extend(extra_headers)
+    start_response("302 Found", cabeceras)
+    return [b""]
 
 
 def renderizar_vista_auth(
@@ -1233,11 +1250,20 @@ def crear_app(  # pylint: disable=too-many-statements
 
         if metodo == "POST" and ruta == "/logout":
             cookie_clear = f"{COOKIE_SESION_USUARIO}=; Path=/; Max-Age=0"
-            return _responder_html(
+            return _redirigir_a(
                 start_response,
-                renderizar_vista_auth(es_registro=False),
+                destino="/login",
                 extra_headers=[("Set-Cookie", cookie_clear)],
             )
+
+        if usuario_id is None:
+            if ruta == "/api/simular":
+                return _responder_json(
+                    start_response,
+                    {"ok": False, "error": "Sesión requerida. Inicie sesión."},
+                    status="401 Unauthorized",
+                )
+            return _redirigir_a(start_response, destino="/login")
 
         if metodo == "POST" and ruta == "/api/simular":
             form = _leer_formulario_post(environ)

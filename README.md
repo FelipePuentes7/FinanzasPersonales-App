@@ -106,14 +106,21 @@ pip-audit -r requirements.txt
 
 ```text
 FinanzasPersonales-App/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                       # Pipeline CI en GitHub Actions (Ruff E,F,B,S + Pytest cov)
 ├── app.py                               # Servidor web local WSGI, sesiones HttpOnly y rutas HTTP
+├── scripts/
+│   └── seed_demo.py                     # Script de datos sintéticos locales para sustentación
 ├── src/
 │   ├── __init__.py                      # Inicializador del paquete de dominio
 │   ├── auth.py                          # HU-12: Autenticación y hash de contraseñas con scrypt + sal
 │   ├── parser_montos.py                 # HU-02: Extracción de montos y mitigación de abuso (H-01, H-02)
-│   ├── database.py                      # Esquema SQLite de 6 tablas 100% parametrizadas (?) por usuario_id
+│   ├── database.py                      # Esquema SQLite de 7 tablas 100% parametrizadas (?) por usuario_id
 │   ├── clasificador.py                  # HU-01, HU-03, RNF-02, RNF-03: Clasificador híbrido/offline y privacidad
-│   └── servicios.py                     # HU-04 a HU-14: Rollover mensual, presupuesto diario, alertas y CSV
+│   ├── reporte_excel.py                 # HU-14: Generador de reportes Excel (.xlsx) de 3 hojas
+│   ├── servicios.py                     # HU-04 a HU-14: Rollover mensual, presupuesto diario, alertas y CSV
+│   └── simulador.py                     # HU-15: Simulador de viabilidad de compra con semáforo y sugerencias
 ├── templates/
 │   ├── index.html                       # Dashboard comercial Bolsillo con Chart.js, buscador y selector de mes
 │   ├── login.html                       # Pantalla minimalista de inicio de sesión con logo SVG
@@ -126,15 +133,17 @@ FinanzasPersonales-App/
 │   ├── test_database.py                 # 6 pruebas de SQLite parametrizado e inyección SQL
 │   ├── test_clasificador.py             # 5 pruebas de clasificación, fallback offline y privacidad RNF-03
 │   ├── test_servicios.py                # 5 pruebas de métricas, alertas HU-06 y exportación CSV HU-08
-│   ├── test_app.py                      # 6 pruebas de integración de rutas web, login, rollover y UI limpia
-│   ├── test_reglas_negocio_s7.py        # 40 pruebas formales (particiones, límites, tabla decisión y fixture)
+│   ├── test_app.py                      # 7 pruebas de integración de rutas web, login 302, rollover y UI limpia
+│   ├── test_reglas_negocio_s7.py        # 41 pruebas formales (particiones, límites, tabla decisión y fixture)
 │   ├── test_evolucion_sdlc.py           # 6 pruebas de ingresos extra, gastos fijos y créditos a cuotas
-│   └── test_multiusuario_y_rollover.py  # 6 pruebas de scrypt, aislamiento multiusuario y rollover mensual
+│   ├── test_multiusuario_y_rollover.py  # 6 pruebas de scrypt, aislamiento multiusuario y rollover mensual
+│   ├── test_bloque1_excel_multigasto_ritmo.py # 6 pruebas de Excel .xlsx, multi-gasto y ritmo de gasto
+│   └── test_simulador.py                # 8 pruebas del simulador de viabilidad de compra y conversión 1 clic
 ├── .env.example                         # Plantilla de variables de entorno sin secretos reales
 ├── .gitignore                           # Exclusión de .env, data/, *.db, venv/ y cachés
-├── bitacora_ia.md                       # Bitácora auditable de decisiones de IA (24 entradas del ciclo completo)
+├── bitacora_ia.md                       # Bitácora auditable de decisiones de IA (27 entradas del ciclo completo)
 ├── pyproject.toml                       # Configuración de pytest y ruff (reglas E, F, B, S)
-├── registro_pruebas.md                  # Registro formal de 6 reglas, tablas de decisión, mutación y datos
+├── registro_pruebas.md                  # Registro formal de 7 reglas, tablas de decisión, mutación y datos
 ├── requirements.txt                     # Dependencias con versiones exactas fijadas (==)
 ├── revision_seguridad.md                # Informe de auditoría AppSec, scrypt, control de acceso y hallazgos
 └── README.md                            # Documentación general y contratos del proyecto

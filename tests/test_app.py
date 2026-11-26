@@ -6,13 +6,32 @@ import time
 from app import ClientePruebaWeb, crear_app
 
 
+def _crear_cliente_autenticado(ruta_db: Path) -> ClientePruebaWeb:
+    """Crea un `ClientePruebaWeb` con sesión autenticada activa."""
+    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente.post(
+        "/register",
+        {
+            "nombre": "Usuario Prueba",
+            "email": "prueba@bolsillo.co",
+            "password": "ClavePrueba2026",
+        },
+    )
+    return cliente
+
+
 def test_panel_principal_autofocus_y_presupuesto_no_establecido(
     tmp_path: Path,
 ) -> None:
-    """Verifica HU-04 Esc. 2 y RNF-04: autofocus en input y aviso de presupuesto."""
+    """Verifica redirección 302 a `/login` sin sesión, autofocus y aviso."""
     ruta_db = tmp_path / "test_web.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente_anon = ClientePruebaWeb(crear_app(ruta_db))
 
+    resp_anon = cliente_anon.get("/")
+    assert resp_anon.status_code == 302
+    assert resp_anon.headers.get("Location") == "/login"
+
+    cliente = _crear_cliente_autenticado(ruta_db)
     resp = cliente.get("/")
     assert resp.status_code == 200
     assert "autofocus" in resp.text
@@ -25,7 +44,7 @@ def test_panel_principal_autofocus_y_presupuesto_no_establecido(
 def test_guardar_presupuesto_y_rechazar_negativo_web(tmp_path: Path) -> None:
     """Verifica HU-05 Esc. 1 y 2 desde el formulario web `/presupuesto`."""
     ruta_db = tmp_path / "test_web.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente = _crear_cliente_autenticado(ruta_db)
 
     resp_err = cliente.post("/presupuesto", {"monto_mensual": "-50000"})
     assert resp_err.status_code == 200
@@ -42,7 +61,7 @@ def test_guardar_presupuesto_y_rechazar_negativo_web(tmp_path: Path) -> None:
 def test_flujo_completo_gastos_alertas_y_reclasificacion_web(tmp_path: Path) -> None:
     """Verifica HU-01, HU-02, HU-03 y HU-06 en las rutas `/gastos` y reclasificación."""
     ruta_db = tmp_path / "test_web.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente = _crear_cliente_autenticado(ruta_db)
     cliente.post("/presupuesto", {"monto_mensual": "400000"})
 
     resp_ok = cliente.post("/gastos", {"texto": "almuerzo corriente 14000"})
@@ -86,7 +105,7 @@ def test_flujo_completo_gastos_alertas_y_reclasificacion_web(tmp_path: Path) -> 
 def test_filtrado_offline_exportacion_csv_y_rendimiento_rnf01(tmp_path: Path) -> None:
     """Verifica HU-07, HU-08 y RNF-01 (renderizado < 1.2 segundos)."""
     ruta_db = tmp_path / "test_web.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente = _crear_cliente_autenticado(ruta_db)
 
     resp_csv_vacio = cliente.get("/exportar-csv")
     assert resp_csv_vacio.status_code == 400
@@ -119,7 +138,7 @@ def test_filtrado_offline_exportacion_csv_y_rendimiento_rnf01(tmp_path: Path) ->
 def test_flujo_web_ingresos_extra_gastos_fijos_y_creditos(tmp_path: Path) -> None:
     """Verifica HU-09, HU-10 y HU-11 desde las rutas HTTP del panel web."""
     ruta_db = tmp_path / "test_web_sdlc.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente = _crear_cliente_autenticado(ruta_db)
     cliente.post("/presupuesto", {"monto_mensual": "2000000"})
 
     # 1. Gasto grande deja el saldo en sobregiro (-$1.000.000)
@@ -248,7 +267,10 @@ def test_flujo_web_multiusuario_login_rollover_y_sin_jerga_academica(
 
     # 5. Logout y Login de Laura
     resp_logout = cliente_a.post("/logout")
-    assert resp_logout.status_code == 200
+    assert resp_logout.status_code == 302
+    assert resp_logout.headers.get("Location") == "/login"
+    resp_post_logout = cliente_a.get("/")
+    assert resp_post_logout.status_code == 302
     resp_login_err = cliente_a.post(
         "/login",
         {"email": "laura@bolsillo.co", "password": "MalPassword"},
@@ -261,7 +283,7 @@ def test_flujo_web_v1_excel_multigasto_edicion_eliminacion_y_modo_oscuro(
 ) -> None:
     """Verifica versión v1.0, descarga Excel .xlsx, multi-gasto, eliminar y tema."""
     ruta_db = tmp_path / "test_web_v1.db"
-    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente = _crear_cliente_autenticado(ruta_db)
     cliente.post("/presupuesto", {"monto_mensual": "1500000"})
 
     inicio = cliente.get("/")

@@ -239,13 +239,22 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Decisión:** Aceptada
 - **Por qué:** Brinda valor preventivo real al usuario antes de comprometer su liquidez: reutiliza `extraer_monto` para aceptar jerga (`"800 lucas"`), calcula sin mutar SQLite el impacto sobre el saldo del mes y la compromisión futura (gastos fijos + créditos activos + nueva cuota), sugiere automáticamente el plazo en cuotas o ahorro mensual cuando da Rojo/Amarillo y permite registrar la decisión en 1 clic.
 - **Verificación:** Se ejecutó `pytest -v` pasando las **97 pruebas** en verde (`97 passed`) y `ruff check --select E,F,B,S .` con **`0` avisos** (`All checks passed!`).
-- **Commit relacionado:** `feat(simulador): implementar simulador de viabilidad de compra con semaforo, sugerencia inteligente y conversion en 1 clic`
+- **Commit relacionado:** `104d5a1` (`feat(simulador): implementar simulador de viabilidad de compra con semaforo, sugerencia inteligente y conversion en 1 clic`)
+
+### Entrada 27 (DevOps y Control de Acceso v1.0 — Redirección 302 a `/login` y Pipeline CI en GitHub Actions)
+
+- **Fecha:** 2026-11-26
+- **Prompt o sugerencia:** *"Asegurar en `app.py` que toda petición sin cookie de sesión válida a `/` o rutas protegidas redirija inmediatamente con `302 Found` a `/login` (o `401 Unauthorized` en `/api/simular`), y configurar el flujo de Integración Continua `.github/workflows/ci.yml` con Python 3.12, `ruff check --select E,F,B,S .` y `pytest --cov=src -v`."*
+- **Decisión:** Aceptada
+- **Por qué:** Cierra cualquier acceso anónimo implícito al panel principal obligando al visitante a autenticarse en `/login` o crear su cuenta en `/register` desde el primer ingreso, y automatiza en GitHub Actions las compuertas de calidad, seguridad y cobertura en cada `push` o `pull_request` sobre `main`.
+- **Verificación:** Se ejecutó localmente `ruff check --select E,F,B,S .` (`All checks passed!`) y `pytest --cov=src -v` (`97 passed`, `89%` de cobertura en `src/`).
+- **Commit relacionado:** `ci(devops): configurar pipeline GitHub Actions y exigir redireccion 302 a login en rutas protegidas`
 
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 15 |
+| Aceptadas | 16 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 
