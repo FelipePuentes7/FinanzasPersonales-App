@@ -214,11 +214,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 81 pruebas (`81 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(producto-etapa3): implementar UI comercial Bolsillo sin jerga academica, login/registro y graficas Chart.js`
 
+### Entrada 24 (SDLC Iteración 3 - Etapa 4: Auditoría Final de Documentación Viva y Consolidación Comercial)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Realizar la auditoría final cruzada entre el código de producto (`src/auth.py`, `src/database.py`, `src/servicios.py`, `app.py`, plantillas `login.html`, `register.html`, `index.html`) y los 4 documentos vivos (`README.md`, `revision_seguridad.md`, `registro_pruebas.md` y `bitacora_ia.md`), verificando que las 81 pruebas y el linter de seguridad pasen limpios antes de fusionar a `main`."*
+- **Decisión:** Aceptada
+- **Por qué:** Consolida el árbol de archivos real en `README.md` (documentando `src/auth.py`, `templates/login.html`, `templates/register.html` y `tests/test_multiusuario_y_rollover.py` con las 81 pruebas automatizadas) y deja sincronizados los 4 documentos de ingeniería.
+- **Verificación:** Se ejecutaron `pytest -v` (`81 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`, `0` avisos) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
+- **Commit relacionado:** `docs(producto-etapa4): sincronizar README y bitacora con arquitectura multiusuario final y 81 pruebas`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 12 |
+| Aceptadas | 13 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 
