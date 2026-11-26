@@ -3,157 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanzasPersonales-App | Asistente IA de Gastos</title>
+    <title>FinanzasPersonales-App | Control Financiero Personal</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header class="topbar">
         <div class="container topbar-inner">
             <div class="brand">
-                <span class="brand-badge">COP</span>
+                <div class="brand-badge">COP</div>
                 <div>
-                    <h1>FinanzasPersonales-App</h1>
-                    <p class="subtitle">Asistente Web Local para Registro y Análisis de Gastos mediante IA</p>
+                    <h1>FinanzasPersonales</h1>
+                    <p class="subtitle">Control de Presupuesto, Ingresos Extra, Gastos Fijos y Créditos</p>
                 </div>
             </div>
-            <div class="status-pill">
-                <span class="dot-online"></span> SQLite Local &bull; Modo Híbrido / Offline Activo
+            <div class="topbar-meta">
+                <span class="status-pill">
+                    <span class="dot-online"></span> Motor Local SQLite &bull; Sin exposición en nube
+                </span>
             </div>
         </div>
     </header>
 
-    <main class="container main-grid">
-        <!-- Columna Principal: Alertas, Captura Rápida, Tarjetas y Tabla -->
-        <section class="content-column">
+    <main class="container">
+        {{BLOQUE_ALERTAS}}
+        {{BLOQUE_MODAL_CONFIRMACION}}
 
-            {{BLOQUE_ALERTAS}}
-
-            {{BLOQUE_MODAL_CONFIRMACION}}
-
-            <!-- HU-01 / HU-02 / RNF-04: Captura en lenguaje natural en máximo 2 interacciones -->
-            <div class="card capture-card">
-                <div class="card-header-row">
-                    <h2>Registro Rápido en Lenguaje Natural</h2>
-                    <span class="hint-tag">Presione Enter o clic en Registrar</span>
+        <!-- HU-04 y HU-09: Ecuación de Balance Financiero en 4 Tarjetas -->
+        <section class="metrics-grid" aria-label="Resumen financiero del mes">
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">1. Presupuesto Base</span>
+                    <span class="metric-tag">Tope Fijo</span>
                 </div>
-                <form action="/gastos" method="post" class="capture-form">
-                    <input
-                        type="text"
-                        id="input-gasto"
-                        name="texto"
-                        value="{{VALOR_INPUT_TEXTO}}"
-                        placeholder="Ej: almuerzo corriente 14000 | 20 lucas de gasolina para la moto | fotocopias 4.500"
-                        autocomplete="off"
-                        autofocus
-                        required
-                    >
-                    <button type="submit" class="btn btn-primary">Registrar</button>
-                </form>
-                <p class="capture-examples">
-                    Soporta jerga colombiana (<strong>lucas</strong>, <strong>luca</strong>, <strong>mil</strong>) y puntos de mil. Clasificación automática en 5 categorías.
-                </p>
+                <strong class="metric-value tabular-nums" id="metric-presupuesto">{{PRESUPUESTO_FMT}}</strong>
+                <span class="metric-foot">Configurado para el mes (HU-05)</span>
+            </article>
+
+            <article class="metric-card card-ingresos">
+                <div class="metric-top">
+                    <span class="metric-label">2. Ingresos Extra / Abonos</span>
+                    <span class="metric-tag tag-emerald">+ Liquidez</span>
+                </div>
+                <strong class="metric-value tabular-nums" id="metric-ingresos">{{TOTAL_INGRESOS_EXTRA_FMT}}</strong>
+                <span class="metric-foot">Capacidad total: <b class="tabular-nums">{{CAPACIDAD_TOTAL_FMT}}</b> (HU-09)</span>
+            </article>
+
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">3. Total Gastado</span>
+                    <span class="metric-tag">Egresos</span>
+                </div>
+                <strong class="metric-value tabular-nums" id="metric-gastado">{{TOTAL_GASTADO_FMT}}</strong>
+                <span class="metric-foot">{{TOTAL_REGISTROS}} movimientos en el periodo</span>
+            </article>
+
+            <article class="metric-card {{CLASE_TARJETA_SALDO}}">
+                <div class="metric-top">
+                    <span class="metric-label">4. Saldo Disponible</span>
+                    <span class="metric-tag">Balance Real</span>
+                </div>
+                <strong class="metric-value tabular-nums" id="metric-saldo">{{SALDO_DISPONIBLE_FMT}}</strong>
+                <span class="metric-foot">{{ESTADO_SALDO_TEXTO}}</span>
+            </article>
+        </section>
+
+        <!-- Barra de Progreso de Consumo -->
+        <section class="card progress-card">
+            <div class="progress-header">
+                <span>Ejecución sobre Capacidad Total del Mes (Presupuesto + Ingresos Extra)</span>
+                <strong class="tabular-nums">{{PORCENTAJE_CONSUMO}}%</strong>
             </div>
-
-            <!-- HU-04: Panel Visual de Métricas Financieras -->
-            <div class="metrics-grid">
-                <article class="metric-card">
-                    <span class="metric-label">Presupuesto Mensual</span>
-                    <strong class="metric-value" id="metric-presupuesto">{{PRESUPUESTO_FMT}}</strong>
-                    <span class="metric-foot">Tope configurado (HU-05)</span>
-                </article>
-
-                <article class="metric-card">
-                    <span class="metric-label">Total Gastado en el Mes</span>
-                    <strong class="metric-value" id="metric-gastado">{{TOTAL_GASTADO_FMT}}</strong>
-                    <span class="metric-foot">{{TOTAL_REGISTROS}} transacciones acumuladas</span>
-                </article>
-
-                <article class="metric-card {{CLASE_TARJETA_SALDO}}">
-                    <span class="metric-label">Saldo Restante Disponible</span>
-                    <strong class="metric-value" id="metric-saldo">{{SALDO_DISPONIBLE_FMT}}</strong>
-                    <span class="metric-foot">{{ESTADO_SALDO_TEXTO}}</span>
-                </article>
-            </div>
-
-            <!-- HU-04: Barra de Progreso de Consumo Presupuestal -->
-            <div class="card progress-card">
-                <div class="progress-header">
-                    <span>Consumo del Presupuesto Mensual</span>
-                    <strong>{{PORCENTAJE_CONSUMO}}%</strong>
-                </div>
-                <div class="progress-track" role="progressbar" aria-valuenow="{{PORCENTAJE_CONSUMO}}" aria-valuemin="0" aria-valuemax="100">
-                    <div class="progress-fill {{CLASE_BARRA_PROGRESO}}" style="width: {{PORCENTAJE_BARRA}}%;"></div>
-                </div>
-            </div>
-
-            <!-- HU-07 y HU-08: Tabla Interactiva Filtrable Offline y Exportación CSV -->
-            <div class="card table-card">
-                <div class="table-toolbar">
-                    <div>
-                        <h2>Historial de Transacciones</h2>
-                        <p class="subtotal-label">
-                            Categoría: <strong>{{CATEGORIA_ACTIVA}}</strong> &bull;
-                            Subtotal: <strong id="subtotal-filtrado">{{SUBTOTAL_FILTRADO_FMT}}</strong>
-                        </p>
-                    </div>
-
-                    <div class="toolbar-actions">
-                        <form action="/" method="get" class="filter-form">
-                            <label for="select-categoria" class="sr-only">Filtrar por categoría</label>
-                            <select id="select-categoria" name="categoria" onchange="this.form.submit()">
-                                {{OPCIONES_FILTRO_CATEGORIA}}
-                            </select>
-                            <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
-                        </form>
-
-                        <a href="/exportar-csv" class="btn btn-outline btn-sm" id="btn-exportar-csv">
-                            Descargar CSV
-                        </a>
-                    </div>
-                </div>
-
-                {{CONTENIDO_TABLA_TRANSACCIONES}}
+            <div class="progress-track" role="progressbar" aria-valuenow="{{PORCENTAJE_CONSUMO}}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-fill {{CLASE_BARRA_PROGRESO}}" style="width: {{PORCENTAJE_BARRA}}%;"></div>
             </div>
         </section>
 
-        <!-- Barra Lateral: Configuración de Presupuesto (HU-05) y Guía de Categorías -->
-        <aside class="sidebar-column">
-            <div class="card sidebar-card">
-                <h2>Ajustes de Presupuesto</h2>
-                <p class="sidebar-desc">
-                    Defina o actualice su tope de presupuesto mensual en pesos colombianos (COP) para calcular su saldo disponible y activar alertas preventivas.
-                </p>
-                <form action="/presupuesto" method="post" class="budget-form">
-                    <label for="input-presupuesto">Tope Mensual (COP)</label>
-                    <input
-                        type="number"
-                        id="input-presupuesto"
-                        name="monto_mensual"
-                        value="{{PRESUPUESTO_VALOR_ACTUAL}}"
-                        placeholder="Ej: 600000"
-                        step="1000"
-                        required
-                    >
-                    <button type="submit" class="btn btn-primary btn-block">Guardar Presupuesto</button>
-                </form>
-            </div>
+        <div class="main-grid">
+            <!-- Columna Principal: Captura Rápida, Gastos Fijos/Créditos e Historial -->
+            <section class="content-column">
 
-            <div class="card sidebar-card">
-                <h3>Categorías Automáticas (HU-03)</h3>
-                <ul class="category-legend">
-                    <li><span class="badge badge-moto">Transporte/Moto</span> Gasolina, repuestos, aceite, bus, taxi</li>
-                    <li><span class="badge badge-comida">Alimentación</span> Almuerzo, corriente, café, mercado</li>
-                    <li><span class="badge badge-estudio">Estudio</span> Fotocopias, taller, libros, semestre</li>
-                    <li><span class="badge badge-ocio">Ocio</span> Cine, salidas, chaqueta, ropa, juegos</li>
-                    <li><span class="badge badge-varios">Gastos Varios</span> Conceptos generales o por reclasificar</li>
-                </ul>
-            </div>
-        </aside>
+                <!-- HU-01, HU-02, HU-09 y RNF-04: Captura Unificada de Gastos e Ingresos Extra -->
+                <div class="card capture-card">
+                    <div class="card-header-row">
+                        <div>
+                            <h2>Registro Rápido en Lenguaje Natural</h2>
+                            <p class="card-sub">Escriba un gasto cotidiano o un ingreso extra para actualizar su saldo al instante</p>
+                        </div>
+                        <span class="hint-tag">Enter para registrar</span>
+                    </div>
+
+                    <form action="/gastos" method="post" class="capture-form">
+                        <div class="segmented-control" role="radiogroup" aria-label="Tipo de movimiento">
+                            <label class="segment-option">
+                                <input type="radio" name="tipo_movimiento" value="gasto" checked>
+                                <span class="segment-btn segment-gasto">Gasto (&minus;)</span>
+                            </label>
+                            <label class="segment-option">
+                                <input type="radio" name="tipo_movimiento" value="ingreso">
+                                <span class="segment-btn segment-ingreso">Ingreso Extra (+)</span>
+                            </label>
+                        </div>
+
+                        <div class="capture-input-row">
+                            <input
+                                type="text"
+                                id="input-gasto"
+                                name="texto"
+                                value="{{VALOR_INPUT_TEXTO}}"
+                                placeholder="Ej: almuerzo corriente 14000 | 20 lucas gasolina moto | me entraron 1.200.000 trabajo extra"
+                                autocomplete="off"
+                                autofocus
+                                required
+                            >
+                            <button type="submit" class="btn btn-primary">Registrar</button>
+                        </div>
+                    </form>
+                    <p class="capture-examples">
+                        Entiende jerga colombiana (<strong>lucas</strong>, <strong>luca</strong>, <strong>mil</strong>) y detecta automáticamente frases como <em>"me entraron..."</em>, <em>"ingreso..."</em> o <em>"abono..."</em> para recuperar saldos negativos.
+                    </p>
+                </div>
+
+                <!-- HU-10 y HU-11: Paneles Operativos de Gastos Fijos y Créditos a Cuotas -->
+                <div class="commitments-grid">
+                    <!-- HU-10: Gastos Fijos Mensuales -->
+                    <div class="card commitment-card">
+                        <div class="card-header-row">
+                            <div>
+                                <h3>Gastos Fijos Mensuales (HU-10)</h3>
+                                <p class="card-sub">Plantilla mensual: <strong class="tabular-nums">{{TOTAL_GASTOS_FIJOS_FMT}}</strong></p>
+                            </div>
+                        </div>
+
+                        {{BLOQUE_LISTA_GASTOS_FIJOS}}
+
+                        <form action="/gastos-fijos" method="post" class="compact-form">
+                            <div class="compact-form-title">Nuevo compromiso fijo</div>
+                            <div class="compact-row">
+                                <input type="text" name="nombre" placeholder="Ej: Arriendo o Internet" required>
+                                <input type="number" name="monto" placeholder="Monto COP" min="1" step="1000" required>
+                            </div>
+                            <div class="compact-row">
+                                <select name="categoria" aria-label="Categoría del gasto fijo">
+                                    {{OPCIONES_CATEGORIAS_FORM}}
+                                </select>
+                                <button type="submit" class="btn btn-secondary btn-sm">Guardar Fijo</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- HU-11: Control de Créditos y Cuotas -->
+                    <div class="card commitment-card">
+                        <div class="card-header-row">
+                            <div>
+                                <h3>Créditos y Cuotas (HU-11)</h3>
+                                <p class="card-sub">Cuotas activas/mes: <strong class="tabular-nums">{{TOTAL_CUOTAS_ACTIVAS_FMT}}</strong></p>
+                            </div>
+                        </div>
+
+                        {{BLOQUE_LISTA_CREDITOS}}
+
+                        <form action="/creditos" method="post" class="compact-form">
+                            <div class="compact-form-title">Nuevo crédito u obligación a cuotas</div>
+                            <div class="compact-row">
+                                <input type="text" name="nombre" placeholder="Ej: Cuota Moto o Tarjeta" required>
+                                <input type="number" name="valor_cuota" placeholder="Valor cuota" min="1" step="1000" required>
+                            </div>
+                            <div class="compact-row">
+                                <input type="number" name="total_cuotas" placeholder="Total cuotas (ej: 12)" min="1" required>
+                                <input type="number" name="cuotas_pagadas" placeholder="Ya pagadas (0)" min="0" value="0">
+                            </div>
+                            <div class="compact-row">
+                                <select name="categoria" aria-label="Categoría del crédito">
+                                    {{OPCIONES_CATEGORIAS_FORM}}
+                                </select>
+                                <button type="submit" class="btn btn-secondary btn-sm">Crear Crédito</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- HU-07 y HU-08: Tabla Interactiva de Transacciones y Exportación CSV -->
+                <div class="card table-card">
+                    <div class="table-toolbar">
+                        <div>
+                            <h2>Libro de Gastos del Mes</h2>
+                            <p class="subtotal-label">
+                                Filtro activo: <strong>{{CATEGORIA_ACTIVA}}</strong> &bull;
+                                Subtotal categoría: <strong id="subtotal-filtrado" class="tabular-nums">{{SUBTOTAL_FILTRADO_FMT}}</strong>
+                            </p>
+                        </div>
+
+                        <div class="toolbar-actions">
+                            <form action="/" method="get" class="filter-form">
+                                <label for="select-categoria" class="sr-only">Filtrar por categoría</label>
+                                <select id="select-categoria" name="categoria" onchange="this.form.submit()">
+                                    {{OPCIONES_FILTRO_CATEGORIA}}
+                                </select>
+                                <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
+                            </form>
+
+                            <a href="/exportar-csv" class="btn btn-outline btn-sm" id="btn-exportar-csv">
+                                Descargar CSV
+                            </a>
+                        </div>
+                    </div>
+
+                    {{CONTENIDO_TABLA_TRANSACCIONES}}
+                </div>
+            </section>
+
+            <!-- Barra Lateral: Presupuesto Base (HU-05), Abonos Recientes (HU-09) y Categorías -->
+            <aside class="sidebar-column">
+                <div class="card sidebar-card">
+                    <h2>Presupuesto Base (HU-05)</h2>
+                    <p class="sidebar-desc">
+                        Configure su tope mensual base en pesos colombianos (COP). Los ingresos extra se sumarán automáticamente a este valor.
+                    </p>
+                    <form action="/presupuesto" method="post" class="budget-form">
+                        <label for="input-presupuesto">Tope Mensual Base (COP)</label>
+                        <input
+                            type="number"
+                            id="input-presupuesto"
+                            name="monto_mensual"
+                            value="{{PRESUPUESTO_VALOR_ACTUAL}}"
+                            placeholder="Ej: 2000000"
+                            step="1000"
+                            required
+                        >
+                        <button type="submit" class="btn btn-primary btn-block">Guardar Presupuesto</button>
+                    </form>
+                </div>
+
+                <div class="card sidebar-card">
+                    <h3>Ingresos Extra del Mes (HU-09)</h3>
+                    <p class="sidebar-desc">
+                        Abonos que incrementan su disponible o cubren sobregiros.
+                    </p>
+                    {{BLOQUE_HISTORIAL_INGRESOS}}
+                </div>
+
+                <div class="card sidebar-card">
+                    <h3>Categorías del Sistema (HU-03)</h3>
+                    <ul class="category-legend">
+                        <li><span class="badge badge-moto">Transporte/Moto</span> Gasolina, repuestos, aceite, bus, taxi</li>
+                        <li><span class="badge badge-comida">Alimentación</span> Almuerzo, corriente, café, mercado</li>
+                        <li><span class="badge badge-estudio">Estudio</span> Fotocopias, taller, libros, semestre</li>
+                        <li><span class="badge badge-ocio">Ocio</span> Cine, salidas, chaqueta, ropa, juegos</li>
+                        <li><span class="badge badge-varios">Gastos Varios</span> Conceptos generales o por reclasificar</li>
+                    </ul>
+                </div>
+            </aside>
+        </div>
     </main>
 
     <footer class="footer">
         <div class="container">
-            <p>FinanzasPersonales-App &bull; Andrés Felipe Puentes &bull; Persistencia Local SQLite &amp; Arquitectura Limpia</p>
+            <p>FinanzasPersonales-App &bull; Andrés Felipe Puentes Rivera &bull; Arquitectura Limpia, SQLite Local &amp; TDD</p>
         </div>
     </footer>
 </body>

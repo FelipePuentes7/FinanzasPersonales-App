@@ -123,6 +123,23 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ---
 
+### Regla 5 (Evolución SDLC): `registrar_ingreso_desde_texto` (`HU-09`), `aplicar_gasto_fijo_al_mes` (`HU-10`) y `registrar_pago_cuota_credito` (`HU-11`)
+
+**Regla completa (el oráculo):**
+1. **`HU-09` (Ingresos Extra y Recuperación de Saldo):** Todo ingreso extra válido ($I > 0$) incrementa la capacidad mensual ($\text{Capacidad} = P + \sum I$), recalculando el saldo disponible como $\text{Saldo} = P + \sum I - \sum G$. Si la cuenta estaba en sobregiro ($-\$1.000.000$) y entra un ingreso de $\$1.200.000$, el nuevo saldo pasa a $+\$200.000$ y se desactiva la alerta de sobregiro. Si el monto es $\le 0$, lanza `ValueError`.
+2. **`HU-10` (Gastos Fijos Mensuales):** Crear un gasto fijo exige `monto > 0` y nombre no vacío. Al aplicarlo al mes, inserta la transacción `"Gasto fijo: <nombre>"` en SQLite y descuenta su valor del saldo disponible.
+3. **`HU-11` (Control de Créditos y Cuotas):** Cada pago de cuota sobre un crédito con `cuotas_pagadas < total_cuotas` incrementa `cuotas_pagadas + 1`, reduce `cuotas_restantes - 1` e inserta la transacción `"Cuota X/N: <nombre>"`. En el límite donde `cuotas_pagadas == total_cuotas` ($N/N$), cualquier intento adicional de pago se bloquea con `ValueError("Este crédito ya tiene todas sus cuotas pagadas")`.
+
+| Técnica | Partición o límite | Entrada | Esperado (Oráculo) | Prueba que lo cubre |
+|---|---|---|---|---|
+| Partición válida (`HU-09`) | Recuperación de sobregiro con ingreso extra | $P=2\text{M}, G=3\text{M} (-1\text{M})$, `"me entraron 1.200.000 de trabajo extra"` | `saldo=200000, en_sobregiro=False` | `test_hu09_recuperacion_saldo_negativo_con_ingreso_extra` |
+| Límite (`HU-09`) | Borde inválido ingreso en cero (`0`) y negativo (`-1`) | `monto = 0`, `monto = -1`, `True` | `ValueError` | `test_hu09_rechaza_ingreso_extra_no_positivo[0]`, `[-1]`, `[True]` |
+| Partición válida (`HU-10`) | Creación y aplicación de gasto fijo al mes | `"Arriendo habitación"`, `650000` sobre $P=1.500.000$ | `total_gastado=650000, saldo=850000` | `test_hu10_creacion_aplicacion_y_eliminacion_gastos_fijos` |
+| Límite (`HU-11` Borde $N-1 \to N$) | Pago de última cuota pendiente (`11/12` $\to$ `12/12`) | Crédito `12` cuotas con `11` pagadas | `cuotas_pagadas=12, pagado_completo=True` | `test_hu11_control_creditos_pago_cuotas_y_bloqueo_saldado` |
+| Límite (`HU-11` Borde $N/N$ saldado) | Intento de pago cuando ya se pagaron todas (`12/12`) | Crédito `12/12` pagadas | `ValueError("Este crédito ya tiene todas sus cuotas pagadas")` | `test_hu11_control_creditos_pago_cuotas_y_bloqueo_saldado` |
+
+---
+
 ## 2. Pruebas de la IA descartadas o corregidas
 
 **Prompt usado:** *"Genera con pytest la suite de pruebas en `tests/test_reglas_negocio_s7.py` a partir de las 4 reglas de negocio (oráculo) y las tablas de particiones, valores límite y tabla de decisión de `registro_pruebas.md`. Usa `@pytest.mark.parametrize` con comentario explicativo por fila, `pytest.approx` para porcentajes decimales y `pytest.raises` con el tipo y mensaje exacto de error, sin modificar el código fuente. Luego audita cada prueba con las 3 preguntas de revisión."* (Ver Entradas 14 y 15 en [`bitacora_ia.md`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/bitacora_ia.md)).

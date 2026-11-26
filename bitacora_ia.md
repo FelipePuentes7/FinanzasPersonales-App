@@ -151,11 +151,47 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v -k test_fixture_datos_sinteticos_locales_con_casos_dificiles` pasando al 100% y se documentó en la Sección 4 de `registro_pruebas.md`.
 - **Commit relacionado:** `a5b82cb` y `35cc138` (`test(s7): fortalecer aserciones tras auditoria de las 3 preguntas y documentar secciones 2 y 4`)
 
+### Entrada 17 (SDLC Etapa 1 — Análisis de Requisitos HU-09, HU-10, HU-11 y Diseño de Arquitectura)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Analizar las 4 limitaciones detectadas en el uso real de la aplicación (estética genérica, fricción para recuperar saldos negativos con ingresos extra, falta de gastos fijos mensuales y ausencia de control de créditos a cuotas) y diseñar las historias de usuario HU-09, HU-10 y HU-11 junto con la evolución del esquema SQLite y la ecuación de balance sin romper las 67 pruebas existentes."*
+- **Decisión:** Aceptada
+- **Por qué:** Al definir la ecuación `Saldo Disponible = Presupuesto Base + Ingresos Extra - Total Gastado`, se logra retrocompatibilidad total con las pruebas de las Semanas 5 a 7 (cuando `Ingresos Extra == 0`, la fórmula se reduce exactamente a `Presupuesto Base - Total Gastado`) a la vez que permite salir de sobregiros de forma natural. Asimismo, modelar `ingresos_extra`, `gastos_fijos` y `creditos` en tablas SQLite separadas mantiene la responsabilidad única y permite que al aplicar un gasto fijo o pagar una cuota se genere automáticamente su registro trazable en `transacciones`.
+- **Verificación:** Se revisó la coherencia de los criterios de aceptación Gherkin de `HU-09`, `HU-10` y `HU-11` en `README.md` y se verificó con `pytest -v` que las 67 pruebas actuales sigan en verde antes de iniciar la implementación del backend.
+- **Commit relacionado:** `docs(sdlc-etapa1): especificar HU-09, HU-10, HU-11 y arquitectura SQLite evolucionada en README y bitacora`
+
+### Entrada 18 (SDLC Etapa 2 — Backend SQLite parametrizado y Servicios para HU-09, HU-10 y HU-11)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Implementar en `src/database.py` y `src/servicios.py` las tablas y operaciones parametrizadas para `ingresos_extra` (HU-09), `gastos_fijos` (HU-10) y `creditos` a cuotas (HU-11), junto con la suite `tests/test_evolucion_sdlc.py` y la actualización sincronizada de `registro_pruebas.md` y `revision_seguridad.md`."*
+- **Decisión:** Aceptada
+- **Por qué:** Todas las nuevas operaciones usan marcadores `?` y restricciones `CHECK` en SQLite, validando que `bool` no pase como `int` (`_es_entero_positivo`) y bloqueando pagos adicionales cuando `cuotas_pagadas >= total_cuotas` (`HU-11` Escenario 2). Además, la integración en `obtener_resumen_financiero` mantiene intactas las 67 pruebas previas y suma 6 nuevas pruebas para un total de 73 pruebas en verde.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 73 pruebas (`73 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(sdlc-etapa2): implementar backend SQLite y servicios para ingresos extra, gastos fijos y creditos (HU-09 a HU-11)`
+
+### Entrada 19 (SDLC Etapa 3 — Rediseño Visual UI/UX Fintech e Integración de Rutas Web HU-09, HU-10 y HU-11)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Rediseñar `templates/index.html` y `static/style.css` con una estética fintech sobria, números tabulares, barra de 4 tarjetas de balance (Presupuesto + Ingresos Extra - Gastado = Saldo Disponible), selector rápido Gasto/Ingreso Extra, paneles interactivos para Gastos Fijos y Créditos a Cuotas, y conectar las nuevas rutas en `app.py` con pruebas en `tests/test_app.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Elimina la apariencia de plantilla genérica usando jerarquía visual clara, cifras alineadas (`font-variant-numeric: tabular-nums`) y acciones de 1 clic que resuelven la fricción para recuperar saldos en sobregiro (`HU-09`), aplicar compromisos recurrentes (`HU-10`) y controlar cuotas pendientes (`HU-11`), escapando todas las salidas dinámicas con `html.escape` contra XSS.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 74 pruebas (`74 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(sdlc-etapa3): redisenar interfaz UI/UX fintech e integrar rutas web de ingresos extra, gastos fijos y creditos`
+
+### Entrada 20 (SDLC Etapa 4 — Auditoría Cruzada de Documentación Viva y Consolidación Final)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Realizar una revisión cruzada de `README.md`, `revision_seguridad.md`, `registro_pruebas.md`, `bitacora_ia.md`, `requirements.txt` y `.env.example` para garantizar coherencia total con el código final (74 pruebas, 7 archivos de test, 5 tablas SQLite y rutas web HU-01 a HU-11)."*
+- **Decisión:** Aceptada
+- **Por qué:** Actualiza el árbol de estructura en `README.md` incluyendo `registro_pruebas.md`, `tests/test_reglas_negocio_s7.py` y `tests/test_evolucion_sdlc.py`, manteniendo sincronizados los 4 documentos de ingeniería del proyecto sin deuda documental.
+- **Verificación:** Se ejecutaron `pytest -v` (`74 passed`), `ruff check --select E,F,B,S .` (`0` avisos), `pylint app.py src/ tests/` (`10.00/10`) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
+- **Commit relacionado:** `docs(sdlc-etapa4): sincronizar estructura de 74 pruebas y cerrar auditoria documental del proyecto`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 6 |
+| Aceptadas | 10 |
 | Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 

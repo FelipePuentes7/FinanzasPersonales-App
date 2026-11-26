@@ -16,10 +16,10 @@ Commit revisado: `ab006fc` (código funcional de `src/parser_montos.py` del comm
 
 | Punto | ¿Aplica? | Resultado |
 |---|---|---|
-| Inyección (consultas con parámetros) | Sí (SQLite local en `src/database.py`, parser regex en `src/parser_montos.py` y escape HTML en `app.py`) | Todas las sentencias SQL en `src/database.py` usan parámetros `?` (verificado con prueba de inyección SQL en `tests/test_database.py`). En `app.py` se aplica `html.escape` contra XSS y en `src/parser_montos.py` se mitigó `H-01`. |
+| Inyección (consultas con parámetros) | Sí (5 tablas SQLite en `src/database.py`: `presupuesto`, `transacciones`, `ingresos_extra`, `gastos_fijos`, `creditos`; parser regex en `src/parser_montos.py` y escape HTML en `app.py`) | Todas las sentencias `SELECT`, `INSERT`, `UPDATE` y `DELETE` de las 5 tablas usan exclusivamente parámetros `?` (0 concatenaciones SQL). En `app.py` se aplica `html.escape` contra XSS. |
 | Secretos (código, historial, .gitignore, .env.example) | Sí | Sin claves expuestas en el código ni en el historial (`git log -p`). `.env` y `data/` están en `.gitignore`, existe `.env.example` y `src/clasificador.py` anonimiza PII (`RNF-03`). |
 | Contraseñas (scrypt, bcrypt o argon2 con sal) | No, porque la aplicación es una herramienta monousuario de ejecución 100% local (sección 7 de requisitos descarta autenticación por sesión). | No aplica al alcance del proyecto por diseño monousuario local. |
-| Control de acceso (rol verificado y prueba de abuso) | Parcialmente (frontera de validación de dominio y pruebas de abuso sobre entradas web y base de datos) | Se implementaron validaciones de frontera y pruebas de abuso para montos negativos (`H-01`), payloads masivos DoS (`H-02`), presupuestos negativos (`HU-05`), inyección SQL y exportación CSV vacía (`HU-08`). |
+| Control de acceso (rol verificado y prueba de abuso) | Parcialmente (frontera de validación de dominio y pruebas de abuso sobre entradas web y base de datos) | Se implementaron validaciones de frontera, `CHECK` constraints en SQLite y pruebas de abuso para montos negativos (`H-01`), payloads masivos DoS (`H-02`), presupuestos/ingresos/gastos fijos no positivos (`HU-05`, `HU-09`, `HU-10`), bloqueo de pago en créditos saldados (`HU-11`), inyección SQL y exportación CSV vacía (`HU-08`). |
 | Dependencias (existen, necesarias, versión fijada, pip-audit) | Sí | Versiones exactas (`==`) fijadas en `requirements.txt` y `pip-audit` confirmó `0` vulnerabilidades (`No known vulnerabilities found`). |
 
 ## 2. Tabla de hallazgos
