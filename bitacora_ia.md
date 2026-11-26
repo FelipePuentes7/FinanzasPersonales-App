@@ -187,12 +187,21 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `pytest -v` (`74 passed`), `ruff check --select E,F,B,S .` (`0` avisos), `pylint app.py src/ tests/` (`10.00/10`) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
 - **Commit relacionado:** `docs(sdlc-etapa4): sincronizar estructura de 74 pruebas y cerrar auditoria documental del proyecto`
 
+### Entrada 21 (SDLC Iteración 3 - Etapa 1: Diseño de Producto Multiusuario, Rollover Mensual y Limpieza UI)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Diseñar la evolución de FinanzasPersonales-App hacia un producto comercial fintech minimalista (marca 'Bolsillo'), eliminando toda jerga académica de la UI, incorporando autenticación multiusuario con hash seguro, contabilidad mes a mes (YYYY-MM) con arrastre inteligente de saldo positivo o deuda, meta de ahorro, presupuesto diario sugerido y analítica visual con Chart.js."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** En lugar de agregar dependencias externas pesadas para el hash de contraseñas, se decidió utilizar `hashlib.scrypt` nativo de la biblioteca estándar de Python 3.10+ con sal aleatoria de 16 bytes (`secrets.token_hex`) y comparación en tiempo constante (`hmac.compare_digest`), cumpliendo el estándar AppSec de la Semana 6 sin añadir paquetes vulnerables a `pip-audit`. Asimismo, se diseñó la tabla `periodos_mensuales` con soporte de `usuario_id = 1` por defecto para mantener el 100% de retrocompatibilidad con las 74 pruebas previas.
+- **Verificación:** Se documentaron las nuevas historias `HU-12`, `HU-13` y `HU-14`, la ecuación de rollover mensual y el esquema de 6 tablas SQLite en `README.md`.
+- **Commit relacionado:** `docs(producto-etapa1): disenar arquitectura multiusuario scrypt, rollover mensual YYYY-MM y UX comercial`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
 | Aceptadas | 10 |
-| Aceptadas con cambios | 9 |
+| Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas

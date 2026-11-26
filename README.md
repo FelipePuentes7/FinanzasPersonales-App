@@ -15,6 +15,9 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **`HU-09` (Evolución SDLC - Ingresos Extra y Recuperación de Saldo):** Registro ágil de ingresos adicionales o abonos en lenguaje natural (ej. `"me entraron 1.200.000 de trabajo extra"`, `"ingreso 500 lucas"`) o mediante selector de 1 clic, recalculando el saldo disponible (`Presupuesto Base + Ingresos Extra - Total Gastado`) para mitigar o salir de estados de sobregiro.
 - **`HU-10` (Evolución SDLC - Gastos Fijos Mensuales):** Plantilla persistente de compromisos mensuales recurrentes (arriendo, internet, plan celular, servicios) con aplicación al balance del mes en 1 clic sin redigitarlos desde cero.
 - **`HU-11` (Evolución SDLC - Control de Créditos y Cuotas):** Seguimiento de obligaciones a plazos (nombre del crédito, valor de cuota, progreso `cuotas_pagadas / total_cuotas`, saldo pendiente) con botón rápido `"Registrar pago de cuota"` que descuenta del disponible mensual y avanza el contador de cuotas.
+- **`HU-12` (Evolución Producto - Sistema Multiusuario y Autenticación con `scrypt`):** Registro (`/register`) e inicio de sesión (`/login`) con contraseñas protegidas mediante `scrypt` + sal criptográfica aleatoria y aislamiento estricto de datos por `usuario_id` en SQLite.
+- **`HU-13` (Evolución Producto - Contabilidad Mes a Mes con Arrastre Inteligente / Rollover):** Navegación por periodos mensuales (`YYYY-MM`) y cierre mensual que arrastra automáticamente el saldo a favor (ahorro/ganancia) o el saldo pendiente (deuda/sobregiro) hacia el mes siguiente, junto con cálculo de **Meta de Ahorro** y **Presupuesto Diario Sugerido**.
+- **`HU-14` (Evolución Producto - Analítica Visual Minimalista y Buscador Instantáneo):** Interfaz de producto fintech limpia (sin códigos académicos internos en la vista del usuario), equipada con gráficas interactivas en Chart.js (dona de distribución por categoría y barras de flujo mensual) y buscador en tiempo real.
 
 ---
 
@@ -194,9 +197,18 @@ El desarrollo del proyecto empleó **Google Antigravity (Modo Agente y Chat)** b
   - **Entonces** el sistema bloquea la operación lanzando `ValueError("Este crédito ya tiene todas sus cuotas pagadas")` sin generar cobros duplicados.
 
 ### Diseño del Esquema SQLite Evolucionado (`src/database.py`)
-1. `presupuesto (id, monto_mensual, actualizado_en)`: Tope presupuestal base del mes.
-2. `transacciones (id, fecha, concepto, monto, categoria, es_ambiguo)`: Historial de gastos aplicados al mes.
-3. `ingresos_extra (id, fecha, concepto, monto)`: Abonos e ingresos adicionales que suman a la liquidez disponible (`HU-09`).
-4. `gastos_fijos (id, nombre, monto, categoria, activo)`: Plantilla de compromisos recurrentes aplicables en 1 clic (`HU-10`).
-5. `creditos (id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria)`: Obligaciones diferidas a cuotas con control de avance (`HU-11`).
+1. `usuarios (id, nombre, email, password_hash, creado_en)`: Cuentas de usuario con hash `scrypt` y sal criptográfica (`HU-12`).
+2. `presupuesto (id, monto_mensual, actualizado_en)` y `periodos_mensuales (id, usuario_id, periodo, presupuesto_base, meta_ahorro, saldo_arrastrado, cerrado)`: Configuración presupuestal por usuario y periodo `YYYY-MM` con soporte de rollover mensual (`HU-05`, `HU-13`).
+3. `transacciones (id, usuario_id, periodo, fecha, concepto, monto, categoria, es_ambiguo)`: Historial de gastos aislados por usuario y mes (`HU-01`, `HU-12`, `HU-13`).
+4. `ingresos_extra (id, usuario_id, periodo, fecha, concepto, monto)`: Abonos e ingresos adicionales por usuario y periodo (`HU-09`).
+5. `gastos_fijos (id, usuario_id, nombre, monto, categoria, activo)`: Plantilla de compromisos recurrentes por usuario aplicables en 1 clic (`HU-10`).
+6. `creditos (id, usuario_id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria)`: Obligaciones diferidas a cuotas por usuario con control de avance (`HU-11`).
+
+### Regla de Contabilidad Mensual y Arrastre (`HU-13`)
+Para cada usuario y periodo mensual $t$ (`YYYY-MM`):
+$$\text{Capacidad Total}_t = \text{Presupuesto Base}_t + \text{Ingresos Extra}_t + \text{Saldo Arrastrado}_{t-1}$$
+$$\text{Saldo Disponible}_t = \text{Capacidad Total}_t - \text{Meta de Ahorro}_t - \text{Total Gastado}_t$$
+- **Arrastre de ganancia ($\text{Saldo}_t > 0$):** Al avanzar al mes $t+1$, se suma automáticamente como *"Saldo a favor del mes anterior"*.
+- **Arrastre de deuda ($\text{Saldo}_t < 0$):** Al avanzar al mes $t+1$, se descuenta automáticamente como *"Saldo pendiente del mes anterior"*.
+
 
