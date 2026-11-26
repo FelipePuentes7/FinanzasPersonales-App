@@ -6,12 +6,15 @@
 
 **FinanzasPersonales-App** es una aplicación web local en Python 3.10+ diseñada bajo principios de **Arquitectura Limpia**, **Desarrollo Guiado por Pruebas (TDD)** y **Desarrollo Seguro (AppSec)** para ayudar a estudiantes universitarios a registrar, clasificar y controlar sus gastos diarios expresados en lenguaje natural y jerga cotidiana colombiana.
 
-El sistema integra la totalidad del alcance funcional y no funcional definido en la especificación de requisitos:
+El sistema integra la totalidad del alcance funcional y no funcional definido en la especificación de requisitos, más la evolución de producto (Iteración 2 del SDLC) para control financiero real:
 - **`HU-01` y `HU-02` (Prioridad Must):** Captura de gastos en un único campo de texto con `autofocus` (`RNF-04`: máximo 2 interacciones) y normalización de modismos colombianos (`lucas`, `luca`, `mil`) y puntos de miles.
 - **`HU-03` (Prioridad Must):** Clasificación temática automática en 5 categorías fijas (`Transporte/Moto`, `Alimentación`, `Estudio`, `Ocio`, `Gastos Varios`) con anonimización de datos personales (`RNF-03`), fallback offline determinista (`RNF-02`) y reclasificación con un clic para conceptos ambiguos.
-- **`HU-04` y `HU-05` (Prioridad Must / Should):** Panel visual con tarjetas de Presupuesto Mensual, Total Gastado, Saldo Restante Disponible (verde o rojo según estado), barra de progreso porcentual y panel lateral de configuración de presupuesto.
+- **`HU-04` y `HU-05` (Prioridad Must / Should):** Panel visual con tarjetas de Presupuesto Mensual, Ingresos Extra, Total Gastado, Saldo Restante Disponible (verde o rojo según estado), barra de progreso porcentual y panel de configuración de presupuesto.
 - **`HU-06` (Prioridad Should):** Alertas preventivas de sobregiro (`[ALERTA DE SOBREGIRO]`) y modal de confirmación cuando un gasto individual supera el 50% del presupuesto mensual.
 - **`HU-07` y `HU-08` (Prioridad Could):** Filtrado instantáneo por categoría en modo offline con cálculo de subtotal y exportación a archivo plano estándar `gastos_<mes>_<anio>.csv`.
+- **`HU-09` (Evolución SDLC - Ingresos Extra y Recuperación de Saldo):** Registro ágil de ingresos adicionales o abonos en lenguaje natural (ej. `"me entraron 1.200.000 de trabajo extra"`, `"ingreso 500 lucas"`) o mediante selector de 1 clic, recalculando el saldo disponible (`Presupuesto Base + Ingresos Extra - Total Gastado`) para mitigar o salir de estados de sobregiro.
+- **`HU-10` (Evolución SDLC - Gastos Fijos Mensuales):** Plantilla persistente de compromisos mensuales recurrentes (arriendo, internet, plan celular, servicios) con aplicación al balance del mes en 1 clic sin redigitarlos desde cero.
+- **`HU-11` (Evolución SDLC - Control de Créditos y Cuotas):** Seguimiento de obligaciones a plazos (nombre del crédito, valor de cuota, progreso `cuotas_pagadas / total_cuotas`, saldo pendiente) con botón rápido `"Registrar pago de cuota"` que descuenta del disponible mensual y avanza el contador de cuotas.
 
 ---
 
@@ -147,3 +150,50 @@ El desarrollo del proyecto empleó **Google Antigravity (Modo Agente y Chat)** b
 - **Descripción:** Como estudiante universitario, quiero que el sistema reconozca términos como `'lucas'` o `'mil'` para evitar digitar manualmente todos los ceros de una cantidad.
 - **Contrato:** `extraer_monto(texto: str) -> int` en [`src/parser_montos.py`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/src/parser_montos.py). Recibe una frase en lenguaje natural (`<= 280` caracteres) y retorna el monto entero positivo en COP, o lanza `ValueError("Monto ambiguo. Por favor indique el valor en cifras numéricas")` ante expresiones sin cifras claras, negativas o ambiguas.
 - **Comando de pruebas:** `pytest -v`
+
+---
+
+## Evolución Funcional y de Experiencia de Usuario (SDLC — Iteración 2)
+
+### Nuevas Historias de Usuario y Criterios de Aceptación
+
+#### `HU-09` — Registro de ingresos extra y recuperación de saldo negativo
+- **Como** usuario que maneja un presupuesto base pero recibe pagos adicionales en el mes, **quiero** registrar ingresos extra o abonos en lenguaje natural o con un selector rápido, **para** incrementar mi liquidez mensual y recuperar mi saldo disponible cuando haya caído en negativo (sobregiro).
+- **Escenario 1 (Recuperación de sobregiro mediante ingreso extra):**
+  - **Dado** que el presupuesto base es de `$2.000.000` y los gastos acumulados suman `$3.000.000` (saldo en sobregiro de `-$1.000.000`),
+  - **Cuando** el usuario registra el ingreso `"me entraron 1.200.000 de trabajo extra"` (o selecciona tipo `Ingreso Extra`),
+  - **Entonces** el sistema guarda el abono por `$1.200.000`, actualiza el saldo disponible a `+$200.000 disponible` (`$2.000.000 + $1.200.000 - $3.000.000`) y desactiva la alerta roja de sobregiro.
+- **Escenario 2 (Error por ingreso inválido o sin cifra):**
+  - **Dado** que el usuario intenta registrar un ingreso extra sin monto numérico válido o con valor `<= 0`,
+  - **Cuando** envía el formulario,
+  - **Entonces** el sistema rechaza el registro lanzando `ValueError` sin alterar el saldo disponible.
+
+#### `HU-10` — Gestión y aplicación de gastos fijos mensuales
+- **Como** usuario con obligaciones recurrentes cada mes (arriendo, internet, celular, servicios), **quiero** guardar una lista de mis gastos fijos mensuales y aplicarlos con un solo clic, **para** no tener que escribirlos manualmente uno por uno cada mes.
+- **Escenario 1 (Creación y aplicación de gasto fijo al balance):**
+  - **Dado** que el usuario tiene configurado el gasto fijo `"Arriendo"` por `$650.000` en la categoría `"Gastos Varios"`,
+  - **Cuando** presiona `"Aplicar al mes"`,
+  - **Entonces** el sistema registra automáticamente la transacción `"Gasto fijo: Arriendo"` por `$650.000` en SQLite y descuenta dicho valor del saldo disponible.
+- **Escenario 2 (Error por monto de gasto fijo no positivo):**
+  - **Dado** que el usuario intenta crear un gasto fijo con nombre vacío o monto `<= 0`,
+  - **Cuando** envía el registro,
+  - **Entonces** el sistema rechaza la operación con `ValueError("El monto del gasto fijo debe ser un entero positivo mayor a cero")`.
+
+#### `HU-11` — Control de créditos y pago de cuotas mensuales
+- **Como** usuario que paga obligaciones o compras diferidas a plazos, **quiero** llevar el control de mis créditos (valor de cuota, cuotas pagadas vs. total de cuotas) y registrar el pago de cada cuota con un clic, **para** saber cuántas cuotas me faltan y reflejar el pago inmediatamente en mi balance mensual.
+- **Escenario 1 (Pago de cuota mensual y avance de progreso):**
+  - **Dado** un crédito activo `"Cuota Moto"` con cuota mensual de `$320.000`, `12` cuotas totales y `3` cuotas pagadas,
+  - **Cuando** el usuario pulsa `"Registrar pago de cuota"`,
+  - **Entonces** el contador avanza a `4 / 12` cuotas pagadas (`8` restantes), y se inserta en el historial de gastos la transacción `"Cuota 4/12: Cuota Moto"` por `$320.000`.
+- **Escenario 2 (Bloqueo de pago cuando el crédito ya está saldado):**
+  - **Dado** un crédito cuyas cuotas pagadas ya alcanzaron el total de cuotas (`12 / 12`),
+  - **Cuando** se intenta registrar una nueva cuota,
+  - **Entonces** el sistema bloquea la operación lanzando `ValueError("Este crédito ya tiene todas sus cuotas pagadas")` sin generar cobros duplicados.
+
+### Diseño del Esquema SQLite Evolucionado (`src/database.py`)
+1. `presupuesto (id, monto_mensual, actualizado_en)`: Tope presupuestal base del mes.
+2. `transacciones (id, fecha, concepto, monto, categoria, es_ambiguo)`: Historial de gastos aplicados al mes.
+3. `ingresos_extra (id, fecha, concepto, monto)`: Abonos e ingresos adicionales que suman a la liquidez disponible (`HU-09`).
+4. `gastos_fijos (id, nombre, monto, categoria, activo)`: Plantilla de compromisos recurrentes aplicables en 1 clic (`HU-10`).
+5. `creditos (id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria)`: Obligaciones diferidas a cuotas con control de avance (`HU-11`).
+

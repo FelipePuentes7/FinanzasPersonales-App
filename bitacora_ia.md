@@ -151,11 +151,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v -k test_fixture_datos_sinteticos_locales_con_casos_dificiles` pasando al 100% y se documentó en la Sección 4 de `registro_pruebas.md`.
 - **Commit relacionado:** `a5b82cb` y `35cc138` (`test(s7): fortalecer aserciones tras auditoria de las 3 preguntas y documentar secciones 2 y 4`)
 
+### Entrada 17 (SDLC Etapa 1 — Análisis de Requisitos HU-09, HU-10, HU-11 y Diseño de Arquitectura)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Analizar las 4 limitaciones detectadas en el uso real de la aplicación (estética genérica, fricción para recuperar saldos negativos con ingresos extra, falta de gastos fijos mensuales y ausencia de control de créditos a cuotas) y diseñar las historias de usuario HU-09, HU-10 y HU-11 junto con la evolución del esquema SQLite y la ecuación de balance sin romper las 67 pruebas existentes."*
+- **Decisión:** Aceptada
+- **Por qué:** Al definir la ecuación `Saldo Disponible = Presupuesto Base + Ingresos Extra - Total Gastado`, se logra retrocompatibilidad total con las pruebas de las Semanas 5 a 7 (cuando `Ingresos Extra == 0`, la fórmula se reduce exactamente a `Presupuesto Base - Total Gastado`) a la vez que permite salir de sobregiros de forma natural. Asimismo, modelar `ingresos_extra`, `gastos_fijos` y `creditos` en tablas SQLite separadas mantiene la responsabilidad única y permite que al aplicar un gasto fijo o pagar una cuota se genere automáticamente su registro trazable en `transacciones`.
+- **Verificación:** Se revisó la coherencia de los criterios de aceptación Gherkin de `HU-09`, `HU-10` y `HU-11` en `README.md` y se verificó con `pytest -v` que las 67 pruebas actuales sigan en verde antes de iniciar la implementación del backend.
+- **Commit relacionado:** `docs(sdlc-etapa1): especificar HU-09, HU-10, HU-11 y arquitectura SQLite evolucionada en README y bitacora`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 6 |
+| Aceptadas | 7 |
 | Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 
