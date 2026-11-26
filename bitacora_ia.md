@@ -205,11 +205,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 80 pruebas (`80 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(producto-etapa2): implementar auth scrypt, aislamiento por usuario_id y motor de rollover mensual`
 
+### Entrada 23 (SDLC Iteración 3 - Etapa 3: Rediseño UI/UX Comercial, Pantallas Auth y Gráficas Chart.js)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Crear `templates/login.html` y `templates/register.html` con logo SVG, rediseñar `templates/index.html` y `static/style.css` eliminando toda referencia académica (HU-xx, SQLite, COP, datos personales), integrar selector de periodo mensual con botón de cierre/arrastre, gráficas Chart.js (dona y barras), buscador instantáneo, meta de ahorro y presupuesto diario sugerido, y probar las rutas en `tests/test_app.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Transforma la experiencia de usuario en un producto comercial limpio (**Bolsillo**), con gestión de cookies `HttpOnly` en `app.py` y `ClientePruebaWeb`, visualización analítica inmediata y ausencia comprobada por pruebas automatizadas (`assert "HU-0" not in html`, `assert "SQLite" not in html`) de jerga académica en la interfaz.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 81 pruebas (`81 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(producto-etapa3): implementar UI comercial Bolsillo sin jerga academica, login/registro y graficas Chart.js`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 11 |
+| Aceptadas | 12 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 

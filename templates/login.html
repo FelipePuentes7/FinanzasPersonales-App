@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión | Bolsillo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+    <main class="auth-wrapper">
+        <div class="card auth-card">
+            <div class="auth-header">
+                <div class="brand-logo" aria-hidden="true">
+                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="36" height="36" rx="10" fill="#4F46E5"/>
+                        <path d="M10 13C10 11.3431 11.3431 10 13 10H23C24.6569 10 26 11.3431 26 13V23C26 24.6569 24.6569 26 23 26H13C11.3431 26 10 24.6569 10 23V13Z" stroke="white" stroke-width="2"/>
+                        <path d="M14 21L17 17.5L20 19.5L23 15" stroke="#A5B4FC" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h1>Bienvenido a Bolsillo</h1>
+                <p>Ingresa a tu espacio personal de finanzas y presupuesto mensual</p>
+            </div>
+
+            {{BLOQUE_ALERTA_AUTH}}
+
+            <form action="/login" method="post" class="auth-form">
+                <div class="form-group">
+                    <label for="email">Correo electrónico</label>
+                    <input type="email" id="email" name="email" placeholder="tu@correo.com" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Iniciar sesión</button>
+            </form>
+
+            <div class="auth-footer">
+                <span>¿Aún no tienes cuenta?</span>
+                <a href="/register">Crear cuenta gratis</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
