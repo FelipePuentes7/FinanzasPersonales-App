@@ -1,9 +1,9 @@
 """Módulo de persistencia local en SQLite para FinanzasPersonales-App.
 
-Implementa la creación del esquema y las operaciones CRUD sobre las tablas
-`presupuesto`, `transacciones`, `ingresos_extra`, `gastos_fijos` y `creditos`
-utilizando exclusivamente consultas SQL parametrizadas (`?`) para prevenir
-inyección SQL (RNF-02 y RNF-03).
+Implementa la creación del esquema multiusuario y por periodos mensuales (`YYYY-MM`),
+así como las operaciones CRUD sobre las tablas `usuarios`, `presupuesto`,
+`periodos_mensuales`, `transacciones`, `ingresos_extra`, `gastos_fijos` y
+`creditos` utilizando exclusivamente consultas SQL parametrizadas (`?`).
 """
 
 from contextlib import contextmanager
@@ -16,6 +16,9 @@ RUTA_DB_DEFECTO: Path = Path("data") / "finanzas.db"
 
 MENSAJE_PRESUPUESTO_INVALIDO: str = (
     "El presupuesto mensual debe ser un número positivo mayor a cero"
+)
+MENSAJE_META_AHORRO_INVALIDA: str = (
+    "La meta de ahorro debe ser un número entero mayor o igual a cero"
 )
 MENSAJE_MONTO_TRANSACCION_INVALIDO: str = (
     "El monto de la transacción debe ser un entero positivo mayor a cero"
@@ -44,6 +47,15 @@ CATEGORIAS_VALIDAS: tuple[str, ...] = (
 )
 
 
+def obtener_periodo_actual() -> str:
+    """Retorna el periodo mensual actual en formato `'YYYY-MM'`.
+
+    Returns:
+        str: Periodo actual (ej. `'2026-11'`).
+    """
+    return datetime.now().strftime("%Y-%m")
+
+
 @contextmanager
 def obtener_conexion(
     ruta_db: str | Path = RUTA_DB_DEFECTO,
@@ -55,9 +67,6 @@ def obtener_conexion(
 
     Yields:
         Iterator[sqlite3.Connection]: Conexión activa a SQLite con `Row` factory.
-
-    Raises:
-        sqlite3.Error: Si ocurre un fallo de entrada/salida al abrir la base.
     """
     ruta = Path(ruta_db)
     ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -73,14 +82,52 @@ def obtener_conexion(
         conexion.close()
 
 
+def _asegurar_columnas_migracion(cursor: sqlite3.Cursor) -> None:
+    """Agrega columnas de `usuario_id` y `periodo` en bases existentes si faltan."""
+    migraciones = (
+        ("transacciones", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
+        ("transacciones", "periodo", "TEXT NOT NULL DEFAULT '2026-11'"),
+        ("ingresos_extra", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
+        ("ingresos_extra", "periodo", "TEXT NOT NULL DEFAULT '2026-11'"),
+        ("gastos_fijos", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
+        ("creditos", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
+    )
+    tablas_permitidas = {
+        "transacciones",
+        "ingresos_extra",
+        "gastos_fijos",
+        "creditos",
+    }
+    for tabla, columna, definicion in migraciones:
+        if tabla not in tablas_permitidas:
+            continue
+        filas_info = cursor.execute(f"PRAGMA table_info({tabla})").fetchall()
+        nombres_col = {str(fila["name"]) for fila in filas_info}
+        if columna not in nombres_col:
+            cursor.execute(
+                f"ALTER TABLE {tabla} ADD COLUMN {columna} {definicion}"
+            )
+
+
 def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
-    """Crea las 5 tablas del sistema si aún no existen en el archivo SQLite.
+    """Crea las tablas del esquema multiusuario y mensual si aún no existen.
 
     Args:
         ruta_db (str | Path): Ruta hacia el archivo de base de datos SQLite.
     """
     with obtener_conexion(ruta_db) as conn:
         cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                creado_en TEXT NOT NULL
+            )
+            """
+        )
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS presupuesto (
@@ -92,8 +139,25 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
         )
         cursor.execute(
             """
+            CREATE TABLE IF NOT EXISTS periodos_mensuales (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL DEFAULT 1,
+                periodo TEXT NOT NULL,
+                presupuesto_base INTEGER NOT NULL CHECK (presupuesto_base > 0),
+                meta_ahorro INTEGER NOT NULL DEFAULT 0 CHECK (meta_ahorro >= 0),
+                saldo_arrastrado INTEGER NOT NULL DEFAULT 0,
+                cerrado INTEGER NOT NULL DEFAULT 0,
+                actualizado_en TEXT NOT NULL,
+                UNIQUE(usuario_id, periodo)
+            )
+            """
+        )
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS transacciones (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL DEFAULT 1,
+                periodo TEXT NOT NULL DEFAULT '2026-11',
                 fecha TEXT NOT NULL,
                 concepto TEXT NOT NULL,
                 monto INTEGER NOT NULL CHECK (monto > 0),
@@ -106,6 +170,8 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
             """
             CREATE TABLE IF NOT EXISTS ingresos_extra (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL DEFAULT 1,
+                periodo TEXT NOT NULL DEFAULT '2026-11',
                 fecha TEXT NOT NULL,
                 concepto TEXT NOT NULL,
                 monto INTEGER NOT NULL CHECK (monto > 0)
@@ -116,6 +182,7 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
             """
             CREATE TABLE IF NOT EXISTS gastos_fijos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL DEFAULT 1,
                 nombre TEXT NOT NULL,
                 monto INTEGER NOT NULL CHECK (monto > 0),
                 categoria TEXT NOT NULL,
@@ -127,6 +194,7 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
             """
             CREATE TABLE IF NOT EXISTS creditos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL DEFAULT 1,
                 nombre TEXT NOT NULL,
                 valor_cuota INTEGER NOT NULL CHECK (valor_cuota > 0),
                 total_cuotas INTEGER NOT NULL CHECK (total_cuotas > 0),
@@ -135,29 +203,37 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
             )
             """
         )
+        _asegurar_columnas_migracion(cursor)
 
 
 def _es_entero_positivo(valor: Any) -> bool:
-    """Verifica que un valor sea estrictamente `int` (no `bool`) y mayor a cero.
-
-    Args:
-        valor (Any): Valor por comprobar.
-
-    Returns:
-        bool: `True` si es un entero `> 0`; `False` en caso contrario.
-    """
+    """Verifica que un valor sea estrictamente `int` (no `bool`) y mayor a cero."""
     return not isinstance(valor, bool) and isinstance(valor, int) and valor > 0
 
 
-def guardar_presupuesto(
+def _es_entero_no_negativo(valor: Any) -> bool:
+    """Verifica que un valor sea estrictamente `int` (no `bool`) y `>= 0`."""
+    return not isinstance(valor, bool) and isinstance(valor, int) and valor >= 0
+
+
+def guardar_presupuesto(  # pylint: disable=too-many-arguments
     monto_mensual: int,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
+    meta_ahorro: int | None = None,
+    saldo_arrastrado: int | None = None,
 ) -> int:
-    """Define o actualiza el tope de presupuesto mensual en SQLite (HU-05).
+    """Define o actualiza el tope de presupuesto mensual por usuario y periodo.
 
     Args:
         monto_mensual (int): Valor entero positivo en pesos colombianos (COP).
         ruta_db (str | Path): Ruta del archivo SQLite.
+        usuario_id (int): Identificador del usuario propietario.
+        periodo (str | None): Periodo `'YYYY-MM'` (por defecto el mes actual).
+        meta_ahorro (int | None): Meta de ahorro opcional del mes (`>= 0`).
+        saldo_arrastrado (int | None): Saldo arrastrado del mes anterior.
 
     Returns:
         int: El monto mensual almacenado exitosamente.
@@ -168,19 +244,67 @@ def guardar_presupuesto(
     if not _es_entero_positivo(monto_mensual):
         raise ValueError(MENSAJE_PRESUPUESTO_INVALIDO)
 
+    if meta_ahorro is not None and not _es_entero_no_negativo(meta_ahorro):
+        raise ValueError(MENSAJE_META_AHORRO_INVALIDA)
+
+    periodo_activo = (periodo or obtener_periodo_actual()).strip()
     inicializar_db(ruta_db)
     marca_tiempo = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with obtener_conexion(ruta_db) as conn:
+        if usuario_id == 1:
+            conn.execute(
+                """
+                INSERT INTO presupuesto (id, monto_mensual, actualizado_en)
+                VALUES (1, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    monto_mensual = excluded.monto_mensual,
+                    actualizado_en = excluded.actualizado_en
+                """,
+                (monto_mensual, marca_tiempo),
+            )
+
+        actual = conn.execute(
+            """
+            SELECT meta_ahorro, saldo_arrastrado
+            FROM periodos_mensuales
+            WHERE usuario_id = ? AND periodo = ?
+            """,
+            (usuario_id, periodo_activo),
+        ).fetchone()
+
+        ahorro_final = (
+            meta_ahorro
+            if meta_ahorro is not None
+            else (int(actual["meta_ahorro"]) if actual is not None else 0)
+        )
+        arrastre_final = (
+            saldo_arrastrado
+            if saldo_arrastrado is not None
+            else (int(actual["saldo_arrastrado"]) if actual is not None else 0)
+        )
+
         conn.execute(
             """
-            INSERT INTO presupuesto (id, monto_mensual, actualizado_en)
-            VALUES (1, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                monto_mensual = excluded.monto_mensual,
+            INSERT INTO periodos_mensuales (
+                usuario_id, periodo, presupuesto_base, meta_ahorro,
+                saldo_arrastrado, cerrado, actualizado_en
+            )
+            VALUES (?, ?, ?, ?, ?, 0, ?)
+            ON CONFLICT(usuario_id, periodo) DO UPDATE SET
+                presupuesto_base = excluded.presupuesto_base,
+                meta_ahorro = excluded.meta_ahorro,
+                saldo_arrastrado = excluded.saldo_arrastrado,
                 actualizado_en = excluded.actualizado_en
             """,
-            (monto_mensual, marca_tiempo),
+            (
+                usuario_id,
+                periodo_activo,
+                monto_mensual,
+                ahorro_final,
+                arrastre_final,
+                marca_tiempo,
+            ),
         )
 
     return monto_mensual
@@ -188,25 +312,157 @@ def guardar_presupuesto(
 
 def obtener_presupuesto(
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
 ) -> int | None:
-    """Consulta el presupuesto mensual activo almacenado en SQLite (HU-04).
+    """Consulta el presupuesto mensual activo del usuario en el periodo indicado.
 
     Args:
         ruta_db (str | Path): Ruta del archivo SQLite.
+        usuario_id (int): Identificador del usuario.
+        periodo (str | None): Periodo `'YYYY-MM'`.
 
     Returns:
-        int | None: Monto del presupuesto mensual en COP, o `None` si aún
-            no ha sido configurado por el usuario.
+        int | None: Monto del presupuesto mensual en COP, o `None`.
     """
+    periodo_activo = (periodo or obtener_periodo_actual()).strip()
+    inicializar_db(ruta_db)
+    with obtener_conexion(ruta_db) as conn:
+        fila_periodo = conn.execute(
+            """
+            SELECT presupuesto_base
+            FROM periodos_mensuales
+            WHERE usuario_id = ? AND periodo = ?
+            """,
+            (usuario_id, periodo_activo),
+        ).fetchone()
+
+        if fila_periodo is not None:
+            return int(fila_periodo["presupuesto_base"])
+
+        if usuario_id == 1 and periodo is None:
+            fila_legacy = conn.execute(
+                "SELECT monto_mensual FROM presupuesto WHERE id = 1"
+            ).fetchone()
+            if fila_legacy is not None:
+                return int(fila_legacy["monto_mensual"])
+
+    return None
+
+
+def obtener_datos_periodo(
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
+) -> dict[str, Any]:
+    """Obtiene la configuración completa de un periodo mensual para un usuario.
+
+    Args:
+        ruta_db (str | Path): Ruta del archivo SQLite.
+        usuario_id (int): Identificador del usuario.
+        periodo (str | None): Periodo `'YYYY-MM'`.
+
+    Returns:
+        dict[str, Any]: Diccionario con `periodo`, `presupuesto_base`,
+            `meta_ahorro`, `saldo_arrastrado` y `cerrado`.
+    """
+    periodo_activo = (periodo or obtener_periodo_actual()).strip()
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         fila = conn.execute(
-            "SELECT monto_mensual FROM presupuesto WHERE id = 1"
+            """
+            SELECT presupuesto_base, meta_ahorro, saldo_arrastrado, cerrado
+            FROM periodos_mensuales
+            WHERE usuario_id = ? AND periodo = ?
+            """,
+            (usuario_id, periodo_activo),
         ).fetchone()
 
-    if fila is None:
-        return None
-    return int(fila["monto_mensual"])
+    if fila is not None:
+        return {
+            "periodo": periodo_activo,
+            "presupuesto_base": int(fila["presupuesto_base"]),
+            "meta_ahorro": int(fila["meta_ahorro"]),
+            "saldo_arrastrado": int(fila["saldo_arrastrado"]),
+            "cerrado": bool(fila["cerrado"]),
+        }
+
+    presupuesto_fallback = obtener_presupuesto(
+        ruta_db,
+        usuario_id=usuario_id,
+        periodo=periodo,
+    )
+    return {
+        "periodo": periodo_activo,
+        "presupuesto_base": presupuesto_fallback,
+        "meta_ahorro": 0,
+        "saldo_arrastrado": 0,
+        "cerrado": False,
+    }
+
+
+def guardar_meta_ahorro(
+    meta_ahorro: int,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> int:
+    """Actualiza la meta de ahorro mensual de un usuario en el periodo activo.
+
+    Args:
+        meta_ahorro (int): Monto entero mayor o igual a cero en COP.
+        usuario_id (int): Identificador del usuario.
+        periodo (str | None): Periodo `'YYYY-MM'`.
+        ruta_db (str | Path): Ruta del archivo SQLite.
+
+    Returns:
+        int: Valor de la meta de ahorro almacenada.
+
+    Raises:
+        ValueError: Si `meta_ahorro < 0` o no hay presupuesto base configurado.
+    """
+    if not _es_entero_no_negativo(meta_ahorro):
+        raise ValueError(MENSAJE_META_AHORRO_INVALIDA)
+
+    datos = obtener_datos_periodo(
+        ruta_db,
+        usuario_id=usuario_id,
+        periodo=periodo,
+    )
+    if datos["presupuesto_base"] is None:
+        raise ValueError("Configure primero el presupuesto mensual del periodo")
+
+    guardar_presupuesto(
+        int(datos["presupuesto_base"]),
+        ruta_db,
+        usuario_id=usuario_id,
+        periodo=datos["periodo"],
+        meta_ahorro=meta_ahorro,
+        saldo_arrastrado=int(datos["saldo_arrastrado"]),
+    )
+    return meta_ahorro
+
+
+def marcar_periodo_cerrado(
+    *,
+    usuario_id: int = 1,
+    periodo: str,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> None:
+    """Marca un periodo mensual como cerrado tras arrastrar su saldo."""
+    inicializar_db(ruta_db)
+    with obtener_conexion(ruta_db) as conn:
+        conn.execute(
+            """
+            UPDATE periodos_mensuales
+            SET cerrado = 1
+            WHERE usuario_id = ? AND periodo = ?
+            """,
+            (usuario_id, periodo.strip()),
+        )
 
 
 def _validar_datos_transaccion(
@@ -214,20 +470,7 @@ def _validar_datos_transaccion(
     monto: int,
     categoria: str,
 ) -> str:
-    """Valida los campos de una transacción antes de insertarla en SQLite.
-
-    Args:
-        concepto (str): Descripción corta del gasto.
-        monto (int): Valor entero positivo en COP.
-        categoria (str): Categoría asignada dentro de `CATEGORIAS_VALIDAS`.
-
-    Returns:
-        str: Concepto limpio sin espacios extremos.
-
-    Raises:
-        ValueError: Si el concepto está vacío, el monto no es positivo o la
-            categoría no pertenece al catálogo fijo del sistema.
-    """
+    """Valida los campos de una transacción antes de insertarla en SQLite."""
     if not isinstance(concepto, str) or not concepto.strip():
         raise ValueError(MENSAJE_CONCEPTO_INVALIDO)
 
@@ -247,33 +490,34 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
     *,
     fecha: str | None = None,
     es_ambiguo: bool = False,
+    usuario_id: int = 1,
+    periodo: str | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> int:
-    """Almacena una nueva transacción de gasto de forma parametrizada (HU-01).
-
-    Args:
-        concepto (str): Descripción limpia del gasto (ej. 'Almuerzo corriente').
-        monto (int): Valor entero positivo en COP.
-        categoria (str): Categoría asignada dentro de `CATEGORIAS_VALIDAS`.
-        fecha (str | None): Fecha en formato 'YYYY-MM-DD'.
-        es_ambiguo (bool): Marca para conceptos clasificados por defecto (HU-03).
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        int: Identificador único (`id`) de la transacción insertada.
-    """
+    """Almacena una nueva transacción de gasto aislada por usuario y periodo."""
     concepto_limpio = _validar_datos_transaccion(concepto, monto, categoria)
     fecha_registro = fecha or datetime.now().strftime("%Y-%m-%d")
+    periodo_activo = (periodo or fecha_registro[:7]).strip()
     bandera_ambiguo = 1 if es_ambiguo else 0
 
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         cursor = conn.execute(
             """
-            INSERT INTO transacciones (fecha, concepto, monto, categoria, es_ambiguo)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO transacciones (
+                usuario_id, periodo, fecha, concepto, monto, categoria, es_ambiguo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (fecha_registro, concepto_limpio, monto, categoria, bandera_ambiguo),
+            (
+                usuario_id,
+                periodo_activo,
+                fecha_registro,
+                concepto_limpio,
+                monto,
+                categoria,
+                bandera_ambiguo,
+            ),
         )
         nuevo_id = cursor.lastrowid
 
@@ -283,47 +527,51 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
 def listar_transacciones(
     categoria: str | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
+    busqueda: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Consulta el historial de transacciones con filtro opcional por categoría.
-
-    Args:
-        categoria (str | None): Categoría a filtrar (`None`, `""` o `"Todas"`).
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        list[dict[str, Any]]: Lista de transacciones ordenadas por `id DESC`.
-
-    Raises:
-        ValueError: Si se especifica una categoría fuera de `CATEGORIAS_VALIDAS`.
-    """
+    """Consulta el historial de transacciones del usuario con filtros opcionales."""
     inicializar_db(ruta_db)
-    filtro = categoria.strip() if isinstance(categoria, str) else ""
+    filtro_cat = categoria.strip() if isinstance(categoria, str) else ""
+    if filtro_cat == "Todas":
+        filtro_cat = ""
+    if filtro_cat and filtro_cat not in CATEGORIAS_VALIDAS:
+        raise ValueError(MENSAJE_CATEGORIA_INVALIDA)
+
+    filtro_periodo = periodo.strip() if isinstance(periodo, str) else ""
+    filtro_busq = busqueda.strip().lower() if isinstance(busqueda, str) else ""
+    patron_like = f"%{filtro_busq}%" if filtro_busq else ""
 
     with obtener_conexion(ruta_db) as conn:
-        if filtro and filtro != "Todas":
-            if filtro not in CATEGORIAS_VALIDAS:
-                raise ValueError(MENSAJE_CATEGORIA_INVALIDA)
-            filas = conn.execute(
-                """
-                SELECT id, fecha, concepto, monto, categoria, es_ambiguo
-                FROM transacciones
-                WHERE categoria = ?
-                ORDER BY id DESC
-                """,
-                (filtro,),
-            ).fetchall()
-        else:
-            filas = conn.execute(
-                """
-                SELECT id, fecha, concepto, monto, categoria, es_ambiguo
-                FROM transacciones
-                ORDER BY id DESC
-                """
-            ).fetchall()
+        filas = conn.execute(
+            """
+            SELECT id, usuario_id, periodo, fecha, concepto, monto,
+                   categoria, es_ambiguo
+            FROM transacciones
+            WHERE usuario_id = ?
+              AND (? = '' OR periodo = ?)
+              AND (? = '' OR categoria = ?)
+              AND (? = '' OR LOWER(concepto) LIKE ?)
+            ORDER BY id DESC
+            """,
+            (
+                usuario_id,
+                filtro_periodo,
+                filtro_periodo,
+                filtro_cat,
+                filtro_cat,
+                filtro_busq,
+                patron_like,
+            ),
+        ).fetchall()
 
     return [
         {
             "id": int(fila["id"]),
+            "usuario_id": int(fila["usuario_id"]),
+            "periodo": str(fila["periodo"]),
             "fecha": str(fila["fecha"]),
             "concepto": str(fila["concepto"]),
             "monto": int(fila["monto"]),
@@ -338,20 +586,10 @@ def actualizar_categoria_transaccion(
     transaccion_id: int,
     nueva_categoria: str,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
 ) -> bool:
-    """Actualiza la categoría de una transacción y limpia su marca de ambigüedad.
-
-    Args:
-        transaccion_id (int): Identificador de la transacción por modificar.
-        nueva_categoria (str): Nueva categoría válida seleccionada por el usuario.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        bool: `True` si el registro existía y fue actualizado; `False` si no existe.
-
-    Raises:
-        ValueError: Si `nueva_categoria` no pertenece a `CATEGORIAS_VALIDAS`.
-    """
+    """Actualiza la categoría de una transacción verificando pertenencia al usuario."""
     if nueva_categoria not in CATEGORIAS_VALIDAS:
         raise ValueError(MENSAJE_CATEGORIA_INVALIDA)
 
@@ -361,51 +599,39 @@ def actualizar_categoria_transaccion(
             """
             UPDATE transacciones
             SET categoria = ?, es_ambiguo = 0
-            WHERE id = ?
+            WHERE id = ? AND usuario_id = ?
             """,
-            (nueva_categoria, transaccion_id),
+            (nueva_categoria, transaccion_id, usuario_id),
         )
-        actualizado = cursor.rowcount > 0
-
-    return actualizado
+        return cursor.rowcount > 0
 
 
-def insertar_ingreso_extra(
+def insertar_ingreso_extra(  # pylint: disable=too-many-arguments
     concepto: str,
     monto: int,
     *,
     fecha: str | None = None,
+    usuario_id: int = 1,
+    periodo: str | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> int:
-    """Registra un ingreso extra o abono de forma parametrizada (HU-09).
-
-    Args:
-        concepto (str): Origen o descripción del ingreso extra.
-        monto (int): Valor entero positivo en COP.
-        fecha (str | None): Fecha en formato 'YYYY-MM-DD'.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        int: Identificador (`id`) del ingreso extra registrado.
-
-    Raises:
-        ValueError: Si el concepto está vacío o el monto no es un entero `> 0`.
-    """
+    """Registra un ingreso extra o abono aislado por usuario y periodo (HU-09)."""
     if not isinstance(concepto, str) or not concepto.strip():
         raise ValueError(MENSAJE_CONCEPTO_INVALIDO)
     if not _es_entero_positivo(monto):
         raise ValueError(MENSAJE_INGRESO_INVALIDO)
 
     fecha_registro = fecha or datetime.now().strftime("%Y-%m-%d")
+    periodo_activo = (periodo or fecha_registro[:7]).strip()
     inicializar_db(ruta_db)
 
     with obtener_conexion(ruta_db) as conn:
         cursor = conn.execute(
             """
-            INSERT INTO ingresos_extra (fecha, concepto, monto)
-            VALUES (?, ?, ?)
+            INSERT INTO ingresos_extra (usuario_id, periodo, fecha, concepto, monto)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (fecha_registro, concepto.strip(), monto),
+            (usuario_id, periodo_activo, fecha_registro, concepto.strip(), monto),
         )
         nuevo_id = cursor.lastrowid
 
@@ -414,28 +640,39 @@ def insertar_ingreso_extra(
 
 def listar_ingresos_extra(
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    periodo: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Lista todos los ingresos extra registrados en el periodo (HU-09).
-
-    Args:
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        list[dict[str, Any]]: Lista de ingresos con `id`, `fecha`, `concepto`, `monto`.
-    """
+    """Lista los ingresos extra registrados por un usuario en el periodo."""
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
-        filas = conn.execute(
-            """
-            SELECT id, fecha, concepto, monto
-            FROM ingresos_extra
-            ORDER BY id DESC
-            """
-        ).fetchall()
+        if periodo is not None and periodo.strip():
+            filas = conn.execute(
+                """
+                SELECT id, usuario_id, periodo, fecha, concepto, monto
+                FROM ingresos_extra
+                WHERE usuario_id = ? AND periodo = ?
+                ORDER BY id DESC
+                """,
+                (usuario_id, periodo.strip()),
+            ).fetchall()
+        else:
+            filas = conn.execute(
+                """
+                SELECT id, usuario_id, periodo, fecha, concepto, monto
+                FROM ingresos_extra
+                WHERE usuario_id = ?
+                ORDER BY id DESC
+                """,
+                (usuario_id,),
+            ).fetchall()
 
     return [
         {
             "id": int(fila["id"]),
+            "usuario_id": int(fila["usuario_id"]),
+            "periodo": str(fila["periodo"]),
             "fecha": str(fila["fecha"]),
             "concepto": str(fila["concepto"]),
             "monto": int(fila["monto"]),
@@ -449,23 +686,10 @@ def crear_gasto_fijo(
     monto: int,
     categoria: str = "Gastos Varios",
     *,
+    usuario_id: int = 1,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> int:
-    """Registra una plantilla de gasto fijo mensual recurrente (HU-10).
-
-    Args:
-        nombre (str): Nombre del compromiso fijo (ej. 'Arriendo', 'Internet').
-        monto (int): Valor mensual entero positivo en COP.
-        categoria (str): Categoría asociada dentro de `CATEGORIAS_VALIDAS`.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        int: Identificador (`id`) del gasto fijo creado.
-
-    Raises:
-        ValueError: Si el nombre está vacío, el monto es `<= 0` o la categoría
-            es inválida.
-    """
+    """Registra una plantilla de gasto fijo mensual para un usuario (HU-10)."""
     if not isinstance(nombre, str) or not nombre.strip():
         raise ValueError(MENSAJE_CONCEPTO_INVALIDO)
     if not _es_entero_positivo(monto):
@@ -477,10 +701,10 @@ def crear_gasto_fijo(
     with obtener_conexion(ruta_db) as conn:
         cursor = conn.execute(
             """
-            INSERT INTO gastos_fijos (nombre, monto, categoria, activo)
-            VALUES (?, ?, ?, 1)
+            INSERT INTO gastos_fijos (usuario_id, nombre, monto, categoria, activo)
+            VALUES (?, ?, ?, ?, 1)
             """,
-            (nombre.strip(), monto, categoria),
+            (usuario_id, nombre.strip(), monto, categoria),
         )
         nuevo_id = cursor.lastrowid
 
@@ -489,30 +713,26 @@ def crear_gasto_fijo(
 
 def listar_gastos_fijos(
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
 ) -> list[dict[str, Any]]:
-    """Consulta todos los gastos fijos mensuales activos (HU-10).
-
-    Args:
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        list[dict[str, Any]]: Lista de gastos fijos con `id`, `nombre`, `monto`
-            y `categoria`.
-    """
+    """Consulta los gastos fijos activos pertenecientes al usuario indicado."""
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         filas = conn.execute(
             """
-            SELECT id, nombre, monto, categoria, activo
+            SELECT id, usuario_id, nombre, monto, categoria, activo
             FROM gastos_fijos
-            WHERE activo = 1
+            WHERE usuario_id = ? AND activo = 1
             ORDER BY id ASC
-            """
+            """,
+            (usuario_id,),
         ).fetchall()
 
     return [
         {
             "id": int(fila["id"]),
+            "usuario_id": int(fila["usuario_id"]),
             "nombre": str(fila["nombre"]),
             "monto": int(fila["monto"]),
             "categoria": str(fila["categoria"]),
@@ -525,21 +745,15 @@ def listar_gastos_fijos(
 def eliminar_gasto_fijo(
     gasto_fijo_id: int,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
 ) -> bool:
-    """Elimina un gasto fijo mensual de la plantilla recurrente (HU-10).
-
-    Args:
-        gasto_fijo_id (int): Identificador del gasto fijo por eliminar.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        bool: `True` si se eliminó el registro; `False` si no existía.
-    """
+    """Elimina un gasto fijo verificando que pertenezca al usuario autenticado."""
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         cursor = conn.execute(
-            "DELETE FROM gastos_fijos WHERE id = ?",
-            (gasto_fijo_id,),
+            "DELETE FROM gastos_fijos WHERE id = ? AND usuario_id = ?",
+            (gasto_fijo_id, usuario_id),
         )
         return cursor.rowcount > 0
 
@@ -551,24 +765,10 @@ def crear_credito(  # pylint: disable=too-many-arguments
     *,
     cuotas_pagadas: int = 0,
     categoria: str = "Gastos Varios",
+    usuario_id: int = 1,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> int:
-    """Registra una obligación o crédito diferido a cuotas mensuales (HU-11).
-
-    Args:
-        nombre (str): Nombre del crédito (ej. 'Cuota Moto', 'Tarjeta Crédito').
-        valor_cuota (int): Valor entero positivo de cada cuota mensual en COP.
-        total_cuotas (int): Número total de cuotas pactadas (`> 0`).
-        cuotas_pagadas (int): Cuotas pagadas inicialmente (`0 <= pagadas <= total`).
-        categoria (str): Categoría del gasto cuando se paga una cuota.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        int: Identificador (`id`) del crédito creado.
-
-    Raises:
-        ValueError: Si los parámetros numéricos o de texto son inválidos.
-    """
+    """Registra una obligación a cuotas asociada al usuario indicado (HU-11)."""
     if not isinstance(nombre, str) or not nombre.strip():
         raise ValueError(MENSAJE_CONCEPTO_INVALIDO)
     if not _es_entero_positivo(valor_cuota) or not _es_entero_positivo(total_cuotas):
@@ -588,11 +788,19 @@ def crear_credito(  # pylint: disable=too-many-arguments
         cursor = conn.execute(
             """
             INSERT INTO creditos (
-                nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria
+                usuario_id, nombre, valor_cuota, total_cuotas,
+                cuotas_pagadas, categoria
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (nombre.strip(), valor_cuota, total_cuotas, cuotas_pagadas, categoria),
+            (
+                usuario_id,
+                nombre.strip(),
+                valor_cuota,
+                total_cuotas,
+                cuotas_pagadas,
+                categoria,
+            ),
         )
         nuevo_id = cursor.lastrowid
 
@@ -601,24 +809,21 @@ def crear_credito(  # pylint: disable=too-many-arguments
 
 def listar_creditos(
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
 ) -> list[dict[str, Any]]:
-    """Consulta todos los créditos registrados con sus métricas de avance (HU-11).
-
-    Args:
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        list[dict[str, Any]]: Lista de créditos con cuotas restantes, saldo
-            pendiente estimado y porcentaje de progreso.
-    """
+    """Consulta todos los créditos del usuario con sus métricas de avance."""
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         filas = conn.execute(
             """
-            SELECT id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria
+            SELECT id, usuario_id, nombre, valor_cuota, total_cuotas,
+                   cuotas_pagadas, categoria
             FROM creditos
+            WHERE usuario_id = ?
             ORDER BY id ASC
-            """
+            """,
+            (usuario_id,),
         ).fetchall()
 
     resultado: list[dict[str, Any]] = []
@@ -631,6 +836,7 @@ def listar_creditos(
         resultado.append(
             {
                 "id": int(fila["id"]),
+                "usuario_id": int(fila["usuario_id"]),
                 "nombre": str(fila["nombre"]),
                 "valor_cuota": valor_cuota,
                 "total_cuotas": total,
@@ -648,28 +854,19 @@ def listar_creditos(
 def incrementar_cuota_credito(
     credito_id: int,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
 ) -> dict[str, Any]:
-    """Avanza en +1 el contador de cuotas pagadas de un crédito activo (HU-11).
-
-    Args:
-        credito_id (int): Identificador del crédito.
-        ruta_db (str | Path): Ruta del archivo SQLite.
-
-    Returns:
-        dict[str, Any]: Datos actualizados del crédito tras registrar la cuota.
-
-    Raises:
-        ValueError: Si el crédito no existe o si ya tiene todas sus cuotas pagadas.
-    """
+    """Avanza en +1 las cuotas pagadas verificando propiedad del usuario (HU-11)."""
     inicializar_db(ruta_db)
     with obtener_conexion(ruta_db) as conn:
         fila = conn.execute(
             """
             SELECT id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria
             FROM creditos
-            WHERE id = ?
+            WHERE id = ? AND usuario_id = ?
             """,
-            (credito_id,),
+            (credito_id, usuario_id),
         ).fetchone()
 
         if fila is None:
@@ -682,11 +879,11 @@ def incrementar_cuota_credito(
 
         nueva_cuota = pagadas + 1
         conn.execute(
-            "UPDATE creditos SET cuotas_pagadas = ? WHERE id = ?",
-            (nueva_cuota, credito_id),
+            "UPDATE creditos SET cuotas_pagadas = ? WHERE id = ? AND usuario_id = ?",
+            (nueva_cuota, credito_id, usuario_id),
         )
 
-    creditos_actualizados = listar_creditos(ruta_db=ruta_db)
+    creditos_actualizados = listar_creditos(ruta_db=ruta_db, usuario_id=usuario_id)
     for item in creditos_actualizados:
         if item["id"] == credito_id:
             return item

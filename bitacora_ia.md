@@ -196,11 +196,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se documentaron las nuevas historias `HU-12`, `HU-13` y `HU-14`, la ecuación de rollover mensual y el esquema de 6 tablas SQLite en `README.md`.
 - **Commit relacionado:** `docs(producto-etapa1): disenar arquitectura multiusuario scrypt, rollover mensual YYYY-MM y UX comercial`
 
+### Entrada 22 (SDLC Iteración 3 - Etapa 2: Autenticación scrypt, Aislamiento Multiusuario y Rollover Mensual)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Implementar `src/auth.py` con hash `scrypt` y sal criptográfica, evolucionar `src/database.py` y `src/servicios.py` para aislar todas las entidades por `usuario_id` y periodo `YYYY-MM`, implementar `cerrar_y_avanzar_mes` con arrastre automático de ganancia o deuda, meta de ahorro y presupuesto diario sugerido, y agregar `tests/test_multiusuario_y_rollover.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Satisface los 5 pilares de seguridad AppSec (incluyendo contraseñas con `scrypt` + sal y control de acceso verificado con prueba de abuso entre Usuario A y Usuario B) y resuelve la continuidad contable mes a mes sin romper ninguna de las 74 pruebas previas (alcanzando 80 pruebas automatizadas en verde).
+- **Verificación:** Se ejecutó `pytest -v` pasando las 80 pruebas (`80 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(producto-etapa2): implementar auth scrypt, aislamiento por usuario_id y motor de rollover mensual`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 10 |
+| Aceptadas | 11 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 
