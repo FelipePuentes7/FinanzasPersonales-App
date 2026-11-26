@@ -187,12 +187,48 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `pytest -v` (`74 passed`), `ruff check --select E,F,B,S .` (`0` avisos), `pylint app.py src/ tests/` (`10.00/10`) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
 - **Commit relacionado:** `docs(sdlc-etapa4): sincronizar estructura de 74 pruebas y cerrar auditoria documental del proyecto`
 
+### Entrada 21 (SDLC Iteración 3 - Etapa 1: Diseño de Producto Multiusuario, Rollover Mensual y Limpieza UI)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Diseñar la evolución de FinanzasPersonales-App hacia un producto comercial fintech minimalista (marca 'Bolsillo'), eliminando toda jerga académica de la UI, incorporando autenticación multiusuario con hash seguro, contabilidad mes a mes (YYYY-MM) con arrastre inteligente de saldo positivo o deuda, meta de ahorro, presupuesto diario sugerido y analítica visual con Chart.js."*
+- **Decisión:** Aceptada con cambios
+- **Por qué:** En lugar de agregar dependencias externas pesadas para el hash de contraseñas, se decidió utilizar `hashlib.scrypt` nativo de la biblioteca estándar de Python 3.10+ con sal aleatoria de 16 bytes (`secrets.token_hex`) y comparación en tiempo constante (`hmac.compare_digest`), cumpliendo el estándar AppSec de la Semana 6 sin añadir paquetes vulnerables a `pip-audit`. Asimismo, se diseñó la tabla `periodos_mensuales` con soporte de `usuario_id = 1` por defecto para mantener el 100% de retrocompatibilidad con las 74 pruebas previas.
+- **Verificación:** Se documentaron las nuevas historias `HU-12`, `HU-13` y `HU-14`, la ecuación de rollover mensual y el esquema de 6 tablas SQLite en `README.md`.
+- **Commit relacionado:** `docs(producto-etapa1): disenar arquitectura multiusuario scrypt, rollover mensual YYYY-MM y UX comercial`
+
+### Entrada 22 (SDLC Iteración 3 - Etapa 2: Autenticación scrypt, Aislamiento Multiusuario y Rollover Mensual)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Implementar `src/auth.py` con hash `scrypt` y sal criptográfica, evolucionar `src/database.py` y `src/servicios.py` para aislar todas las entidades por `usuario_id` y periodo `YYYY-MM`, implementar `cerrar_y_avanzar_mes` con arrastre automático de ganancia o deuda, meta de ahorro y presupuesto diario sugerido, y agregar `tests/test_multiusuario_y_rollover.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Satisface los 5 pilares de seguridad AppSec (incluyendo contraseñas con `scrypt` + sal y control de acceso verificado con prueba de abuso entre Usuario A y Usuario B) y resuelve la continuidad contable mes a mes sin romper ninguna de las 74 pruebas previas (alcanzando 80 pruebas automatizadas en verde).
+- **Verificación:** Se ejecutó `pytest -v` pasando las 80 pruebas (`80 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(producto-etapa2): implementar auth scrypt, aislamiento por usuario_id y motor de rollover mensual`
+
+### Entrada 23 (SDLC Iteración 3 - Etapa 3: Rediseño UI/UX Comercial, Pantallas Auth y Gráficas Chart.js)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Crear `templates/login.html` y `templates/register.html` con logo SVG, rediseñar `templates/index.html` y `static/style.css` eliminando toda referencia académica (HU-xx, SQLite, COP, datos personales), integrar selector de periodo mensual con botón de cierre/arrastre, gráficas Chart.js (dona y barras), buscador instantáneo, meta de ahorro y presupuesto diario sugerido, y probar las rutas en `tests/test_app.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Transforma la experiencia de usuario en un producto comercial limpio (**Bolsillo**), con gestión de cookies `HttpOnly` en `app.py` y `ClientePruebaWeb`, visualización analítica inmediata y ausencia comprobada por pruebas automatizadas (`assert "HU-0" not in html`, `assert "SQLite" not in html`) de jerga académica en la interfaz.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 81 pruebas (`81 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(producto-etapa3): implementar UI comercial Bolsillo sin jerga academica, login/registro y graficas Chart.js`
+
+### Entrada 24 (SDLC Iteración 3 - Etapa 4: Auditoría Final de Documentación Viva y Consolidación Comercial)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Realizar la auditoría final cruzada entre el código de producto (`src/auth.py`, `src/database.py`, `src/servicios.py`, `app.py`, plantillas `login.html`, `register.html`, `index.html`) y los 4 documentos vivos (`README.md`, `revision_seguridad.md`, `registro_pruebas.md` y `bitacora_ia.md`), verificando que las 81 pruebas y el linter de seguridad pasen limpios antes de fusionar a `main`."*
+- **Decisión:** Aceptada
+- **Por qué:** Consolida el árbol de archivos real en `README.md` (documentando `src/auth.py`, `templates/login.html`, `templates/register.html` y `tests/test_multiusuario_y_rollover.py` con las 81 pruebas automatizadas) y deja sincronizados los 4 documentos de ingeniería.
+- **Verificación:** Se ejecutaron `pytest -v` (`81 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`, `0` avisos) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
+- **Commit relacionado:** `docs(producto-etapa4): sincronizar README y bitacora con arquitectura multiusuario final y 81 pruebas`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 10 |
-| Aceptadas con cambios | 9 |
+| Aceptadas | 13 |
+| Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 
 ## Errores que atraparon las pruebas

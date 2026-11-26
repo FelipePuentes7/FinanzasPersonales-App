@@ -15,6 +15,9 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **`HU-09` (Evolución SDLC - Ingresos Extra y Recuperación de Saldo):** Registro ágil de ingresos adicionales o abonos en lenguaje natural (ej. `"me entraron 1.200.000 de trabajo extra"`, `"ingreso 500 lucas"`) o mediante selector de 1 clic, recalculando el saldo disponible (`Presupuesto Base + Ingresos Extra - Total Gastado`) para mitigar o salir de estados de sobregiro.
 - **`HU-10` (Evolución SDLC - Gastos Fijos Mensuales):** Plantilla persistente de compromisos mensuales recurrentes (arriendo, internet, plan celular, servicios) con aplicación al balance del mes en 1 clic sin redigitarlos desde cero.
 - **`HU-11` (Evolución SDLC - Control de Créditos y Cuotas):** Seguimiento de obligaciones a plazos (nombre del crédito, valor de cuota, progreso `cuotas_pagadas / total_cuotas`, saldo pendiente) con botón rápido `"Registrar pago de cuota"` que descuenta del disponible mensual y avanza el contador de cuotas.
+- **`HU-12` (Evolución Producto - Sistema Multiusuario y Autenticación con `scrypt`):** Registro (`/register`) e inicio de sesión (`/login`) con contraseñas protegidas mediante `scrypt` + sal criptográfica aleatoria y aislamiento estricto de datos por `usuario_id` en SQLite.
+- **`HU-13` (Evolución Producto - Contabilidad Mes a Mes con Arrastre Inteligente / Rollover):** Navegación por periodos mensuales (`YYYY-MM`) y cierre mensual que arrastra automáticamente el saldo a favor (ahorro/ganancia) o el saldo pendiente (deuda/sobregiro) hacia el mes siguiente, junto con cálculo de **Meta de Ahorro** y **Presupuesto Diario Sugerido**.
+- **`HU-14` (Evolución Producto - Analítica Visual Minimalista y Buscador Instantáneo):** Interfaz de producto fintech limpia (sin códigos académicos internos en la vista del usuario), equipada con gráficas interactivas en Chart.js (dona de distribución por categoría y barras de flujo mensual) y buscador en tiempo real.
 
 ---
 
@@ -24,9 +27,9 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **Gestor de paquetes y entorno:** `pip` y módulo estándar `venv`.
 - **Base de datos:** `sqlite3` (incluido en la biblioteca estándar de Python, persistencia local en `data/finanzas.db`).
 - **Dependencias con versiones exactas fijadas en [`requirements.txt`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/requirements.txt):**
-  - `pytest==9.2.0` (suite de 74 pruebas unitarias, parametrizadas, de abuso y de integración web).
+  - `pytest==9.2.0` (suite de 81 pruebas unitarias, parametrizadas, de abuso, aislamiento multiusuario y rollover mensual).
   - `ruff==0.11.2` (linter estático con reglas `E, F, B, S`).
-  - `pylint==4.1.4` (análisis estático PEP 8 con calificación `10.00/10` >= 9.0 exigido por `RNF-05`).
+  - `pylint==4.1.4` (análisis estático PEP 8 con calificación `>= 9.9/10` superando el mínimo de 9.0 exigido por `RNF-05`).
   - `pip-audit==2.9.0` (auditoría de vulnerabilidades en dependencias).
 
 ---
@@ -75,7 +78,7 @@ python -c "from src.parser_montos import extraer_monto; from src.clasificador im
 
 ## 5. Pruebas
 
-Ejecute la suite completa de **74 pruebas automatizadas** y las herramientas de calidad y seguridad con los siguientes comandos:
+Ejecute la suite completa de **81 pruebas automatizadas** y las herramientas de calidad y seguridad con los siguientes comandos:
 
 ```powershell
 # 1. Ejecutar todas las pruebas unitarias, de abuso y de integración web
@@ -97,34 +100,38 @@ pip-audit -r requirements.txt
 
 ```text
 FinanzasPersonales-App/
-├── app.py                       # Servidor web local WSGI, rutas HTTP y cliente de pruebas
+├── app.py                               # Servidor web local WSGI, sesiones HttpOnly y rutas HTTP
 ├── src/
-│   ├── __init__.py              # Inicializador del paquete de dominio
-│   ├── parser_montos.py         # HU-02: Extracción de montos y mitigación de abuso (H-01, H-02)
-│   ├── database.py              # HU-04, HU-05, HU-07: Persistencia SQLite 100% parametrizada (?)
-│   ├── clasificador.py          # HU-01, HU-03, RNF-02, RNF-03: Clasificador híbrido/offline y privacidad
-│   └── servicios.py             # HU-04, HU-06, HU-08: Orquestación, alertas >50%/sobregiro y CSV
+│   ├── __init__.py                      # Inicializador del paquete de dominio
+│   ├── auth.py                          # HU-12: Autenticación y hash de contraseñas con scrypt + sal
+│   ├── parser_montos.py                 # HU-02: Extracción de montos y mitigación de abuso (H-01, H-02)
+│   ├── database.py                      # Esquema SQLite de 6 tablas 100% parametrizadas (?) por usuario_id
+│   ├── clasificador.py                  # HU-01, HU-03, RNF-02, RNF-03: Clasificador híbrido/offline y privacidad
+│   └── servicios.py                     # HU-04 a HU-14: Rollover mensual, presupuesto diario, alertas y CSV
 ├── templates/
-│   └── index.html               # Interfaz web HTML5 con tarjetas métricas, barra y tabla filtrable
+│   ├── index.html                       # Dashboard comercial Bolsillo con Chart.js, buscador y selector de mes
+│   ├── login.html                       # Pantalla minimalista de inicio de sesión con logo SVG
+│   └── register.html                    # Pantalla minimalista de creación de cuenta
 ├── static/
-│   └── style.css                # Hoja de estilos moderna y responsiva (estados verde/rojo/ámbar)
+│   └── style.css                        # Hoja de estilos minimalista fintech (paleta índigo/esmeralda/coral)
 ├── tests/
-│   ├── __init__.py                  # Inicializador del paquete de pruebas
-│   ├── test_parser_montos.py        # 7 pruebas de HU-02 (5 originales TDD + 2 pruebas de abuso)
-│   ├── test_database.py             # 6 pruebas de SQLite parametrizado e inyección SQL
-│   ├── test_clasificador.py         # 5 pruebas de clasificación, fallback offline y privacidad RNF-03
-│   ├── test_servicios.py            # 5 pruebas de métricas, alertas HU-06 y exportación CSV HU-08
-│   ├── test_app.py                  # 5 pruebas de integración de rutas web (HU-01 a HU-11 y RNF-01)
-│   ├── test_reglas_negocio_s7.py    # 40 pruebas formales (particiones, límites, tabla decisión y fixture)
-│   └── test_evolucion_sdlc.py       # 6 pruebas de evolución SDLC (ingresos extra, gastos fijos y créditos)
-├── .env.example                     # Plantilla de variables de entorno sin secretos reales
-├── .gitignore                       # Exclusión de .env, data/, *.db, venv/ y cachés
-├── bitacora_ia.md                   # Bitácora auditable de decisiones de IA (Semanas 5, 6, 7 y SDLC)
-├── pyproject.toml                   # Configuración de pytest y ruff (reglas E, F, B, S)
-├── registro_pruebas.md              # Registro formal de reglas, tablas de decisión, mutación y datos sintéticos
-├── requirements.txt                 # Dependencias con versiones exactas fijadas (==)
-├── revision_seguridad.md            # Informe de auditoría AppSec, hallazgos y verificación de IA
-└── README.md                        # Documentación general y contratos del proyecto
+│   ├── __init__.py                      # Inicializador del paquete de pruebas
+│   ├── test_parser_montos.py            # 7 pruebas de HU-02 (5 originales TDD + 2 pruebas de abuso)
+│   ├── test_database.py                 # 6 pruebas de SQLite parametrizado e inyección SQL
+│   ├── test_clasificador.py             # 5 pruebas de clasificación, fallback offline y privacidad RNF-03
+│   ├── test_servicios.py                # 5 pruebas de métricas, alertas HU-06 y exportación CSV HU-08
+│   ├── test_app.py                      # 6 pruebas de integración de rutas web, login, rollover y UI limpia
+│   ├── test_reglas_negocio_s7.py        # 40 pruebas formales (particiones, límites, tabla decisión y fixture)
+│   ├── test_evolucion_sdlc.py           # 6 pruebas de ingresos extra, gastos fijos y créditos a cuotas
+│   └── test_multiusuario_y_rollover.py  # 6 pruebas de scrypt, aislamiento multiusuario y rollover mensual
+├── .env.example                         # Plantilla de variables de entorno sin secretos reales
+├── .gitignore                           # Exclusión de .env, data/, *.db, venv/ y cachés
+├── bitacora_ia.md                       # Bitácora auditable de decisiones de IA (24 entradas del ciclo completo)
+├── pyproject.toml                       # Configuración de pytest y ruff (reglas E, F, B, S)
+├── registro_pruebas.md                  # Registro formal de 6 reglas, tablas de decisión, mutación y datos
+├── requirements.txt                     # Dependencias con versiones exactas fijadas (==)
+├── revision_seguridad.md                # Informe de auditoría AppSec, scrypt, control de acceso y hallazgos
+└── README.md                            # Documentación general y contratos del proyecto
 ```
 
 ---
@@ -194,9 +201,18 @@ El desarrollo del proyecto empleó **Google Antigravity (Modo Agente y Chat)** b
   - **Entonces** el sistema bloquea la operación lanzando `ValueError("Este crédito ya tiene todas sus cuotas pagadas")` sin generar cobros duplicados.
 
 ### Diseño del Esquema SQLite Evolucionado (`src/database.py`)
-1. `presupuesto (id, monto_mensual, actualizado_en)`: Tope presupuestal base del mes.
-2. `transacciones (id, fecha, concepto, monto, categoria, es_ambiguo)`: Historial de gastos aplicados al mes.
-3. `ingresos_extra (id, fecha, concepto, monto)`: Abonos e ingresos adicionales que suman a la liquidez disponible (`HU-09`).
-4. `gastos_fijos (id, nombre, monto, categoria, activo)`: Plantilla de compromisos recurrentes aplicables en 1 clic (`HU-10`).
-5. `creditos (id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria)`: Obligaciones diferidas a cuotas con control de avance (`HU-11`).
+1. `usuarios (id, nombre, email, password_hash, creado_en)`: Cuentas de usuario con hash `scrypt` y sal criptográfica (`HU-12`).
+2. `presupuesto (id, monto_mensual, actualizado_en)` y `periodos_mensuales (id, usuario_id, periodo, presupuesto_base, meta_ahorro, saldo_arrastrado, cerrado)`: Configuración presupuestal por usuario y periodo `YYYY-MM` con soporte de rollover mensual (`HU-05`, `HU-13`).
+3. `transacciones (id, usuario_id, periodo, fecha, concepto, monto, categoria, es_ambiguo)`: Historial de gastos aislados por usuario y mes (`HU-01`, `HU-12`, `HU-13`).
+4. `ingresos_extra (id, usuario_id, periodo, fecha, concepto, monto)`: Abonos e ingresos adicionales por usuario y periodo (`HU-09`).
+5. `gastos_fijos (id, usuario_id, nombre, monto, categoria, activo)`: Plantilla de compromisos recurrentes por usuario aplicables en 1 clic (`HU-10`).
+6. `creditos (id, usuario_id, nombre, valor_cuota, total_cuotas, cuotas_pagadas, categoria)`: Obligaciones diferidas a cuotas por usuario con control de avance (`HU-11`).
+
+### Regla de Contabilidad Mensual y Arrastre (`HU-13`)
+Para cada usuario y periodo mensual $t$ (`YYYY-MM`):
+$$\text{Capacidad Total}_t = \text{Presupuesto Base}_t + \text{Ingresos Extra}_t + \text{Saldo Arrastrado}_{t-1}$$
+$$\text{Saldo Disponible}_t = \text{Capacidad Total}_t - \text{Meta de Ahorro}_t - \text{Total Gastado}_t$$
+- **Arrastre de ganancia ($\text{Saldo}_t > 0$):** Al avanzar al mes $t+1$, se suma automáticamente como *"Saldo a favor del mes anterior"*.
+- **Arrastre de deuda ($\text{Saldo}_t < 0$):** Al avanzar al mes $t+1$, se descuenta automáticamente como *"Saldo pendiente del mes anterior"*.
+
 

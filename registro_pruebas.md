@@ -140,6 +140,25 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 
 ---
 
+### Regla 6 (Producto Multiusuario y Rollover Mensual): `registrar_usuario` / `autenticar_usuario` (`HU-12`) y `cerrar_y_avanzar_mes` (`HU-13`)
+
+**Regla completa (el oráculo):**
+1. **Autenticación y Aislamiento (`HU-12`):** Toda contraseña se almacena con `scrypt` y sal única (`len >= 6`). Ningún usuario `id_b` puede listar, modificar ni operar transacciones, gastos fijos o créditos cuyo `usuario_id` pertenezca a `id_a`.
+2. **Contabilidad Mensual y Arrastre (`HU-13`):** Al cerrar el periodo $t$ (`YYYY-MM`), el saldo disponible final $\text{Saldo}_t = P_t + I_t + A_{t-1} - \text{Meta}_t - G_t$ se transfiere automáticamente como `saldo_arrastrado` al periodo $t+1$:
+   - Si $\text{Saldo}_t > 0$ (ganancia/ahorro), incrementa el disponible del nuevo mes (`tipo_arrastre = 'ganancia'`).
+   - Si $\text{Saldo}_t < 0$ (deuda/sobregiro), se descuenta del disponible del nuevo mes (`tipo_arrastre = 'deuda'`).
+   - Si $\text{Saldo}_t == 0$ (equilibrio), el nuevo mes inicia con `saldo_arrastrado = 0` (`tipo_arrastre = 'equilibrio'`).
+
+| Técnica | Partición o límite | Entrada | Esperado (Oráculo) | Prueba que lo cubre |
+|---|---|---|---|---|
+| Partición válida (`HU-12`) | Hash `scrypt` con sal aleatoria y login exitoso | `"ClaveSegura2026!"` | `check_password_hash == True`, hashes distintos por sal | `test_hu12_hash_scrypt_registro_y_login_seguro` |
+| Prueba de abuso (`HU-12`) | Intento de acceso cruzado de `Usuario B` sobre recursos de `Usuario A` | `id_b` intenta reclasificar/aplicar recursos de `id_a` | `0` filas listadas, `False` al reclasificar y `ValueError` | `test_hu12_aislamiento_estricto_entre_usuario_a_y_usuario_b` |
+| Partición válida (`HU-13`) | Rollover con ganancia/ahorro (`+$250.000`) de `2026-10` a `2026-11` | $P=1\text{M}, G=750\text{k}$ en `2026-10` | `arrastre=+250000, saldo_nov=1250000, tipo='ganancia'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[ganancia]` |
+| Partición válida (`HU-13`) | Rollover con deuda/sobregiro (`-$180.000`) de `2026-10` a `2026-11` | $P=1\text{M}, G=1.18\text{M}$ en `2026-10` | `arrastre=-180000, saldo_nov=820000, tipo='deuda'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[deuda]` |
+| Límite (`HU-13`) | Rollover en equilibrio exacto (`$0`) | $P=1\text{M}, G=1.2\text{M}, I=200\text{k}$ | `arrastre=0, saldo_nov=1000000, tipo='equilibrio'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[equilibrio]` |
+
+---
+
 ## 2. Pruebas de la IA descartadas o corregidas
 
 **Prompt usado:** *"Genera con pytest la suite de pruebas en `tests/test_reglas_negocio_s7.py` a partir de las 4 reglas de negocio (oráculo) y las tablas de particiones, valores límite y tabla de decisión de `registro_pruebas.md`. Usa `@pytest.mark.parametrize` con comentario explicativo por fila, `pytest.approx` para porcentajes decimales y `pytest.raises` con el tipo y mensaje exacto de error, sin modificar el código fuente. Luego audita cada prueba con las 3 preguntas de revisión."* (Ver Entradas 14 y 15 en [`bitacora_ia.md`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/bitacora_ia.md)).

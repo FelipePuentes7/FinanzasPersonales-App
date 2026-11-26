@@ -182,3 +182,75 @@ def test_flujo_web_ingresos_extra_gastos_fijos_y_creditos(tmp_path: Path) -> Non
         {"credito_id": "1"},
     )
     assert "Este crédito ya tiene todas sus cuotas pagadas" in resp_saldado.text
+
+
+def test_flujo_web_multiusuario_login_rollover_y_sin_jerga_academica(
+    tmp_path: Path,
+) -> None:
+    """Verifica registro/login web, aislamiento entre usuarios, rollover y UI limpia."""
+    ruta_db = tmp_path / "test_web_multi.db"
+    app_wsgi = crear_app(ruta_db)
+    cliente_a = ClientePruebaWeb(app_wsgi)
+    cliente_b = ClientePruebaWeb(app_wsgi)
+
+    # 1. Pantallas de login y registro cargan con logo SVG y sin jerga académica
+    vista_login = cliente_a.get("/login")
+    assert vista_login.status_code == 200
+    assert "<svg" in vista_login.text
+    assert "Bolsillo" in vista_login.text
+
+    # 2. Registro de Usuario A y configuración de Octubre 2026
+    reg_a = cliente_a.post(
+        "/register",
+        {
+            "nombre": "Laura Martínez",
+            "email": "laura@bolsillo.co",
+            "password": "ClaveLaura2026",
+        },
+    )
+    assert reg_a.status_code == 200
+    assert "Laura Martínez" in reg_a.text
+    assert "HU-0" not in reg_a.text
+    assert "SQLite" not in reg_a.text
+
+    cliente_a.post(
+        "/presupuesto",
+        {"monto_mensual": "1000000", "periodo": "2026-10"},
+    )
+    cliente_a.post(
+        "/gastos",
+        {"texto": "almuerzo ejecutivo 200000", "periodo": "2026-10"},
+    )
+
+    # 3. Cierre de Octubre 2026 -> Arrastra +$800.000 de ganancia a Noviembre 2026
+    resp_cierre = cliente_a.post(
+        "/periodo/cerrar",
+        {"periodo_actual": "2026-10"},
+    )
+    assert resp_cierre.status_code == 200
+    assert "Noviembre 2026" in resp_cierre.text
+    assert "$1.800.000 disponible" in resp_cierre.text
+    assert "chartCategorias" in resp_cierre.text
+    assert "chartFlujo" in resp_cierre.text
+
+    # 4. Registro de Usuario B: su sesión está aislada y no ve los datos de Laura
+    reg_b = cliente_b.post(
+        "/register",
+        {
+            "nombre": "Mateo Ruiz",
+            "email": "mateo@bolsillo.co",
+            "password": "ClaveMateo2026",
+        },
+    )
+    assert reg_b.status_code == 200
+    assert "Mateo Ruiz" in reg_b.text
+    assert "Almuerzo ejecutivo" not in reg_b.text
+
+    # 5. Logout y Login de Laura
+    resp_logout = cliente_a.post("/logout")
+    assert resp_logout.status_code == 200
+    resp_login_err = cliente_a.post(
+        "/login",
+        {"email": "laura@bolsillo.co", "password": "MalPassword"},
+    )
+    assert resp_login_err.status_code == 401
