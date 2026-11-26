@@ -169,11 +169,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 73 pruebas (`73 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(sdlc-etapa2): implementar backend SQLite y servicios para ingresos extra, gastos fijos y creditos (HU-09 a HU-11)`
 
+### Entrada 19 (SDLC Etapa 3 — Rediseño Visual UI/UX Fintech e Integración de Rutas Web HU-09, HU-10 y HU-11)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Rediseñar `templates/index.html` y `static/style.css` con una estética fintech sobria, números tabulares, barra de 4 tarjetas de balance (Presupuesto + Ingresos Extra - Gastado = Saldo Disponible), selector rápido Gasto/Ingreso Extra, paneles interactivos para Gastos Fijos y Créditos a Cuotas, y conectar las nuevas rutas en `app.py` con pruebas en `tests/test_app.py`."*
+- **Decisión:** Aceptada
+- **Por qué:** Elimina la apariencia de plantilla genérica usando jerarquía visual clara, cifras alineadas (`font-variant-numeric: tabular-nums`) y acciones de 1 clic que resuelven la fricción para recuperar saldos en sobregiro (`HU-09`), aplicar compromisos recurrentes (`HU-10`) y controlar cuotas pendientes (`HU-11`), escapando todas las salidas dinámicas con `html.escape` contra XSS.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 74 pruebas (`74 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(sdlc-etapa3): redisenar interfaz UI/UX fintech e integrar rutas web de ingresos extra, gastos fijos y creditos`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 8 |
+| Aceptadas | 9 |
 | Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 

@@ -114,3 +114,71 @@ def test_filtrado_offline_exportacion_csv_y_rendimiento_rnf01(tmp_path: Path) ->
     assert resp_csv.status_code == 200
     assert "id,fecha,concepto,monto,categoria" in resp_csv.text
     assert duracion < 1.2
+
+
+def test_flujo_web_ingresos_extra_gastos_fijos_y_creditos(tmp_path: Path) -> None:
+    """Verifica HU-09, HU-10 y HU-11 desde las rutas HTTP del panel web."""
+    ruta_db = tmp_path / "test_web_sdlc.db"
+    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente.post("/presupuesto", {"monto_mensual": "2000000"})
+
+    # 1. Gasto grande deja el saldo en sobregiro (-$1.000.000)
+    resp_sobregiro = cliente.post(
+        "/gastos",
+        {"texto": "reparación moto 3000000", "confirmado": "1"},
+    )
+    assert "-$1.000.000" in resp_sobregiro.text
+    assert "[ALERTA DE SOBREGIRO]" in resp_sobregiro.text
+
+    # 2. HU-09: Ingreso extra en lenguaje natural recupera el saldo a +$200.000
+    resp_ingreso = cliente.post(
+        "/gastos",
+        {"texto": "me entraron 1.200.000 de trabajo extra"},
+    )
+    assert "Ingreso extra registrado exitosamente" in resp_ingreso.text
+    assert "$200.000 disponible" in resp_ingreso.text
+    assert "[ALERTA DE SOBREGIRO]" not in resp_ingreso.text
+
+    # 3. HU-10: Crear y aplicar gasto fijo mensual con 1 clic
+    resp_crear_fijo = cliente.post(
+        "/gastos-fijos",
+        {"nombre": "Internet fibra", "monto": "80000", "categoria": "Estudio"},
+    )
+    assert "Gasto fijo mensual guardado exitosamente" in resp_crear_fijo.text
+
+    resp_aplicar_fijo = cliente.post(
+        "/gastos-fijos/aplicar",
+        {"gasto_fijo_id": "1"},
+    )
+    assert "Gasto fijo aplicado al mes exitosamente" in resp_aplicar_fijo.text
+    assert "Gasto fijo: Internet fibra" in resp_aplicar_fijo.text
+    assert "$120.000 disponible" in resp_aplicar_fijo.text
+
+    # 4. HU-11: Crear crédito a cuotas y registrar pago de cuota con 1 clic
+    resp_crear_cred = cliente.post(
+        "/creditos",
+        {
+            "nombre": "Casco Certificado",
+            "valor_cuota": "50000",
+            "total_cuotas": "2",
+            "cuotas_pagadas": "1",
+            "categoria": "Transporte/Moto",
+        },
+    )
+    assert "Crédito a cuotas registrado exitosamente" in resp_crear_cred.text
+    assert "1/2" in resp_crear_cred.text
+
+    resp_pagar_cuota = cliente.post(
+        "/creditos/pagar-cuota",
+        {"credito_id": "1"},
+    )
+    assert "Pago de cuota registrado exitosamente" in resp_pagar_cuota.text
+    assert "Cuota 2/2: Casco Certificado" in resp_pagar_cuota.text
+    assert "$70.000 disponible" in resp_pagar_cuota.text
+
+    # 5. HU-11 Esc. 2: Intentar pagar una cuota adicional cuando ya está 2/2
+    resp_saldado = cliente.post(
+        "/creditos/pagar-cuota",
+        {"credito_id": "1"},
+    )
+    assert "Este crédito ya tiene todas sus cuotas pagadas" in resp_saldado.text
