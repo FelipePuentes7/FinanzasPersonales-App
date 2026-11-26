@@ -24,7 +24,7 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **Gestor de paquetes y entorno:** `pip` y módulo estándar `venv`.
 - **Base de datos:** `sqlite3` (incluido en la biblioteca estándar de Python, persistencia local en `data/finanzas.db`).
 - **Dependencias con versiones exactas fijadas en [`requirements.txt`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/requirements.txt):**
-  - `pytest==9.2.0` (suite de 27 pruebas unitarias, de abuso y de integración web).
+  - `pytest==9.2.0` (suite de 74 pruebas unitarias, parametrizadas, de abuso y de integración web).
   - `ruff==0.11.2` (linter estático con reglas `E, F, B, S`).
   - `pylint==4.1.4` (análisis estático PEP 8 con calificación `10.00/10` >= 9.0 exigido por `RNF-05`).
   - `pip-audit==2.9.0` (auditoría de vulnerabilidades en dependencias).
@@ -75,7 +75,7 @@ python -c "from src.parser_montos import extraer_monto; from src.clasificador im
 
 ## 5. Pruebas
 
-Ejecute la suite completa de **27 pruebas automatizadas** y las herramientas de calidad y seguridad con los siguientes comandos:
+Ejecute la suite completa de **74 pruebas automatizadas** y las herramientas de calidad y seguridad con los siguientes comandos:
 
 ```powershell
 # 1. Ejecutar todas las pruebas unitarias, de abuso y de integración web
@@ -109,19 +109,22 @@ FinanzasPersonales-App/
 ├── static/
 │   └── style.css                # Hoja de estilos moderna y responsiva (estados verde/rojo/ámbar)
 ├── tests/
-│   ├── __init__.py              # Inicializador del paquete de pruebas
-│   ├── test_parser_montos.py    # 7 pruebas de HU-02 (5 originales TDD + 2 pruebas de abuso)
-│   ├── test_database.py         # 6 pruebas de SQLite parametrizado e inyección SQL
-│   ├── test_clasificador.py     # 5 pruebas de clasificación, fallback offline y privacidad RNF-03
-│   ├── test_servicios.py        # 5 pruebas de métricas, alertas HU-06 y exportación CSV HU-08
-│   └── test_app.py              # 4 pruebas de integración de rutas web y rendimiento RNF-01
-├── .env.example                 # Plantilla de variables de entorno sin secretos reales
-├── .gitignore                   # Exclusión de .env, data/, *.db, venv/ y cachés
-├── bitacora_ia.md               # Bitácora auditable de decisiones de IA (Semanas 5, 6 y MVP)
-├── pyproject.toml               # Configuración de pytest y ruff (reglas E, F, B, S)
-├── requirements.txt             # Dependencias con versiones exactas fijadas (==)
-├── revision_seguridad.md        # Informe de auditoría AppSec, hallazgos y verificación de IA
-└── README.md                    # Documentación general y contratos del proyecto
+│   ├── __init__.py                  # Inicializador del paquete de pruebas
+│   ├── test_parser_montos.py        # 7 pruebas de HU-02 (5 originales TDD + 2 pruebas de abuso)
+│   ├── test_database.py             # 6 pruebas de SQLite parametrizado e inyección SQL
+│   ├── test_clasificador.py         # 5 pruebas de clasificación, fallback offline y privacidad RNF-03
+│   ├── test_servicios.py            # 5 pruebas de métricas, alertas HU-06 y exportación CSV HU-08
+│   ├── test_app.py                  # 5 pruebas de integración de rutas web (HU-01 a HU-11 y RNF-01)
+│   ├── test_reglas_negocio_s7.py    # 40 pruebas formales (particiones, límites, tabla decisión y fixture)
+│   └── test_evolucion_sdlc.py       # 6 pruebas de evolución SDLC (ingresos extra, gastos fijos y créditos)
+├── .env.example                     # Plantilla de variables de entorno sin secretos reales
+├── .gitignore                       # Exclusión de .env, data/, *.db, venv/ y cachés
+├── bitacora_ia.md                   # Bitácora auditable de decisiones de IA (Semanas 5, 6, 7 y SDLC)
+├── pyproject.toml                   # Configuración de pytest y ruff (reglas E, F, B, S)
+├── registro_pruebas.md              # Registro formal de reglas, tablas de decisión, mutación y datos sintéticos
+├── requirements.txt                 # Dependencias con versiones exactas fijadas (==)
+├── revision_seguridad.md            # Informe de auditoría AppSec, hallazgos y verificación de IA
+└── README.md                        # Documentación general y contratos del proyecto
 ```
 
 ---

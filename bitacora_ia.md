@@ -178,11 +178,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutó `pytest -v` pasando las 74 pruebas (`74 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
 - **Commit relacionado:** `feat(sdlc-etapa3): redisenar interfaz UI/UX fintech e integrar rutas web de ingresos extra, gastos fijos y creditos`
 
+### Entrada 20 (SDLC Etapa 4 — Auditoría Cruzada de Documentación Viva y Consolidación Final)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Realizar una revisión cruzada de `README.md`, `revision_seguridad.md`, `registro_pruebas.md`, `bitacora_ia.md`, `requirements.txt` y `.env.example` para garantizar coherencia total con el código final (74 pruebas, 7 archivos de test, 5 tablas SQLite y rutas web HU-01 a HU-11)."*
+- **Decisión:** Aceptada
+- **Por qué:** Actualiza el árbol de estructura en `README.md` incluyendo `registro_pruebas.md`, `tests/test_reglas_negocio_s7.py` y `tests/test_evolucion_sdlc.py`, manteniendo sincronizados los 4 documentos de ingeniería del proyecto sin deuda documental.
+- **Verificación:** Se ejecutaron `pytest -v` (`74 passed`), `ruff check --select E,F,B,S .` (`0` avisos), `pylint app.py src/ tests/` (`10.00/10`) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
+- **Commit relacionado:** `docs(sdlc-etapa4): sincronizar estructura de 74 pruebas y cerrar auditoria documental del proyecto`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 9 |
+| Aceptadas | 10 |
 | Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 
