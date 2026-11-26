@@ -27,6 +27,8 @@ from src.database import (
     actualizar_categoria_transaccion,
     crear_credito,
     crear_gasto_fijo,
+    editar_transaccion,
+    eliminar_transaccion_usuario,
     guardar_meta_ahorro,
     guardar_presupuesto,
 )
@@ -35,6 +37,7 @@ from src.servicios import (
     aplicar_gasto_fijo_al_mes,
     cerrar_y_avanzar_mes,
     es_frase_ingreso_extra,
+    exportar_reporte_excel,
     exportar_transacciones_csv,
     formatear_pesos,
     obtener_resumen_financiero,
@@ -382,6 +385,7 @@ def _renderizar_fila_transaccion(
     """Construye una fila HTML `<tr>` para una transacción individual."""
     tx_id = int(tx["id"])
     categoria = str(tx["categoria"])
+    sub_etiqueta = str(tx.get("sub_etiqueta") or "")
     es_ambiguo = bool(tx["es_ambiguo"])
     clase_fila = ' class="fila-ambigua"' if es_ambiguo else ""
     clase_badge = MAPA_CLASES_BADGE.get(categoria, "badge-varios")
@@ -390,33 +394,47 @@ def _renderizar_fila_transaccion(
         if es_ambiguo
         else ""
     )
+    pill_sub = (
+        f'<span class="subtag-pill">{html.escape(sub_etiqueta)}</span>'
+        if sub_etiqueta
+        else ""
+    )
+    per_esc = html.escape(periodo_activo)
 
     opciones_html = "".join(
         f'<option value="{html.escape(c)}"'
         f'{" selected" if c == categoria else ""}>{html.escape(c)}</option>'
         for c in CATEGORIAS_VALIDAS
     )
-    selector_html = (
+    acciones_html = (
+        '<div class="row-actions">'
         '<form action="/transacciones/categoria" method="post" '
         'class="inline-category-form">'
-        f'<input type="hidden" name="periodo" value="{html.escape(periodo_activo)}">'
+        f'<input type="hidden" name="periodo" value="{per_esc}">'
         f'<input type="hidden" name="transaccion_id" value="{tx_id}">'
         '<select name="nueva_categoria" aria-label="Cambiar categoría">'
         f"{opciones_html}</select>"
         '<button type="submit" class="btn btn-secondary btn-sm">'
         "Cambiar</button></form>"
+        '<form action="/transacciones/eliminar" method="post" '
+        'class="inline-category-form">'
+        f'<input type="hidden" name="periodo" value="{per_esc}">'
+        f'<input type="hidden" name="transaccion_id" value="{tx_id}">'
+        '<button type="submit" class="btn btn-ghost btn-sm">'
+        "Eliminar</button></form></div>"
     )
 
     return (
         f"<tr{clase_fila}>"
         f'<td class="tabular-nums">#{tx_id}</td>'
         f'<td class="tabular-nums">{html.escape(str(tx["fecha"]))}</td>'
-        f"<td><strong>{html.escape(str(tx['concepto']))}</strong>{etiqueta_ambigua}</td>"
+        f"<td><strong>{html.escape(str(tx['concepto']))}</strong>"
+        f"{pill_sub}{etiqueta_ambigua}</td>"
         f'<td class="tabular-nums">'
         f"<strong>{html.escape(formatear_pesos(int(tx['monto'])))}</strong></td>"
         f'<td><span class="badge {clase_badge}">'
         f"{html.escape(categoria)}</span></td>"
-        f"<td>{selector_html}</td>"
+        f"<td>{acciones_html}</td>"
         "</tr>"
     )
 
@@ -484,6 +502,7 @@ def renderizar_pagina_principal(  # pylint: disable=too-many-arguments,too-many-
         estado_saldo = "Liquidez positiva disponible"
 
     periodo_act = str(resumen["periodo_activo"])
+    ritmo = resumen.get("ritmo_gasto", {})
     datos_flujo = {
         "Presupuesto": int(resumen["presupuesto_mensual"] or 0),
         "Ingresos Extra": int(resumen["total_ingresos_extra"]),
@@ -497,6 +516,9 @@ def renderizar_pagina_principal(  # pylint: disable=too-many-arguments,too-many-
         "{{ETIQUETA_PERIODO}}": html.escape(str(resumen["etiqueta_periodo"])),
         "{{PERIODO_ANTERIOR}}": html.escape(str(resumen["periodo_anterior"])),
         "{{PERIODO_SIGUIENTE}}": html.escape(str(resumen["periodo_siguiente"])),
+        "{{RITMO_ESTADO}}": html.escape(str(ritmo.get("estado", "Ritmo saludable"))),
+        "{{RITMO_CLASE}}": html.escape(str(ritmo.get("clase_css", "ritmo-saludable"))),
+        "{{RITMO_DESCRIPCION}}": html.escape(str(ritmo.get("descripcion", ""))),
         "{{BLOQUE_ALERTAS}}": _renderizar_alertas(
             resumen, mensaje_operacion, tipo_alerta
         ),
@@ -584,6 +606,7 @@ def _procesar_post_gastos(
     """Procesa el envío de un gasto o ingreso extra (`POST /gastos`)."""
     texto = formulario.get("texto", "")
     tipo_mov = formulario.get("tipo_movimiento", "gasto").strip().lower()
+    sub_etiqueta = formulario.get("sub_etiqueta", "")
     confirmado = formulario.get("confirmado", "") == "1"
     periodo = formulario.get("periodo") or None
 
@@ -600,6 +623,7 @@ def _procesar_post_gastos(
         else:
             resultado = registrar_gasto_desde_texto(
                 texto,
+                sub_etiqueta=sub_etiqueta,
                 confirmado=confirmado,
                 usuario_id=usuario_id,
                 periodo=periodo,
@@ -769,6 +793,82 @@ def _procesar_post_reclasificacion(
             nombre_usuario=nombre_usuario,
             periodo=periodo,
             mensaje_operacion=f"Categoría actualizada a '{nueva_cat}'",
+            tipo_alerta="exito",
+        )
+    except ValueError as err:
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion=str(err),
+            tipo_alerta="error",
+        )
+
+
+def _procesar_post_editar_transaccion(
+    formulario: dict[str, str],
+    ruta_db: str | Path,
+    usuario_id: int,
+    nombre_usuario: str,
+) -> str:
+    """Edita un movimiento existente (`POST /transacciones/editar`)."""
+    periodo = formulario.get("periodo") or None
+    try:
+        tx_id = int(formulario.get("transaccion_id", "0"))
+        concepto = formulario.get("concepto", "")
+        monto = int(formulario.get("monto", "0").strip().replace(".", ""))
+        categoria = formulario.get("categoria", "Gastos Varios")
+        sub_etiqueta = formulario.get("sub_etiqueta", "")
+        editar_transaccion(
+            tx_id,
+            concepto=concepto,
+            monto=monto,
+            categoria=categoria,
+            sub_etiqueta=sub_etiqueta,
+            usuario_id=usuario_id,
+            ruta_db=ruta_db,
+        )
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion="Movimiento actualizado exitosamente",
+            tipo_alerta="exito",
+        )
+    except ValueError as err:
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion=str(err),
+            tipo_alerta="error",
+        )
+
+
+def _procesar_post_eliminar_transaccion(
+    formulario: dict[str, str],
+    ruta_db: str | Path,
+    usuario_id: int,
+    nombre_usuario: str,
+) -> str:
+    """Elimina un movimiento existente (`POST /transacciones/eliminar`)."""
+    periodo = formulario.get("periodo") or None
+    try:
+        tx_id = int(formulario.get("transaccion_id", "0"))
+        eliminar_transaccion_usuario(
+            tx_id,
+            usuario_id=usuario_id,
+            ruta_db=ruta_db,
+        )
+        return renderizar_pagina_principal(
+            ruta_db,
+            usuario_id=usuario_id,
+            nombre_usuario=nombre_usuario,
+            periodo=periodo,
+            mensaje_operacion="Movimiento eliminado exitosamente",
             tipo_alerta="exito",
         )
     except ValueError as err:
@@ -966,6 +1066,8 @@ def crear_app(  # pylint: disable=too-many-statements
         "/meta-ahorro": _procesar_post_meta_ahorro,
         "/periodo/cerrar": _procesar_post_cerrar_periodo,
         "/transacciones/categoria": _procesar_post_reclasificacion,
+        "/transacciones/editar": _procesar_post_editar_transaccion,
+        "/transacciones/eliminar": _procesar_post_eliminar_transaccion,
         "/gastos-fijos": _procesar_post_crear_gasto_fijo,
         "/gastos-fijos/aplicar": _procesar_post_aplicar_gasto_fijo,
         "/creditos": _procesar_post_crear_credito,
@@ -1073,6 +1175,46 @@ def crear_app(  # pylint: disable=too-many-statements
                 renderizar_vista_auth(es_registro=False),
                 extra_headers=[("Set-Cookie", cookie_clear)],
             )
+
+        if metodo == "GET" and ruta == "/exportar-excel":
+            params = parse_qs(environ.get("QUERY_STRING", ""))
+            periodo_q = params.get("periodo", [None])[0]
+            try:
+                nombre_xlsx, bytes_xlsx = exportar_reporte_excel(
+                    ruta_db=ruta_db,
+                    usuario_id=usuario_id,
+                    nombre_usuario=nombre_usuario,
+                    periodo=periodo_q,
+                )
+                mime_xlsx = (
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                )
+                start_response(
+                    "200 OK",
+                    [
+                        ("Content-Type", mime_xlsx),
+                        (
+                            "Content-Disposition",
+                            f'attachment; filename="{nombre_xlsx}"',
+                        ),
+                        ("Content-Length", str(len(bytes_xlsx))),
+                    ],
+                )
+                return [bytes_xlsx]
+            except ValueError as err:
+                return _responder_html(
+                    start_response,
+                    renderizar_pagina_principal(
+                        ruta_db,
+                        usuario_id=usuario_id,
+                        nombre_usuario=nombre_usuario,
+                        periodo=periodo_q,
+                        mensaje_operacion=str(err),
+                        tipo_alerta="error",
+                    ),
+                    status="400 Bad Request",
+                )
 
         if metodo == "GET" and ruta == "/exportar-csv":
             params = parse_qs(environ.get("QUERY_STRING", ""))

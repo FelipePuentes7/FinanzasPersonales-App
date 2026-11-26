@@ -22,6 +22,24 @@
     --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
+[data-theme="dark"] {
+    --bg-page: #0b1120;
+    --bg-card: #111827;
+    --bg-subtle: #1e293b;
+    --text-main: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --emerald-bg: rgba(16, 185, 129, 0.14);
+    --amber-bg: rgba(245, 158, 11, 0.14);
+    --amber-text: #fde68a;
+    --danger-bg: rgba(244, 63, 94, 0.16);
+    --danger-text: #fecdd3;
+    --border-color: #1e293b;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -33,7 +51,9 @@ body {
     background-color: var(--bg-page);
     color: var(--text-main);
     line-height: 1.5;
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .tabular-nums {
@@ -48,7 +68,7 @@ body {
 
 /* Navbar Minimalista */
 .topbar {
-    background: #ffffff;
+    background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
     padding: 0.85rem 0;
     margin-bottom: 1.5rem;
@@ -102,11 +122,6 @@ body {
     font-weight: 700;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
-    transition: background 0.15s ease;
-}
-
-.month-nav-btn:hover {
-    background: #e2e8f0;
 }
 
 .month-current {
@@ -119,7 +134,8 @@ body {
 .topbar-user {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.55rem;
+    flex-wrap: wrap;
 }
 
 .user-chip {
@@ -296,23 +312,51 @@ body {
 .card-saldo-positivo {
     background: var(--emerald-bg);
     border-color: var(--emerald-border);
-    color: #064e3b;
-}
-
-.card-saldo-positivo .metric-label,
-.card-saldo-positivo .metric-foot {
-    color: #047857;
 }
 
 .card-saldo-negativo {
     background: var(--danger-bg);
     border-color: var(--danger-border);
-    color: var(--danger-text);
 }
 
-.card-saldo-negativo .metric-label,
-.card-saldo-negativo .metric-foot {
+/* Ritmo de Gasto (Burn Rate) */
+.burn-rate-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.ritmo-pill {
+    font-size: 0.73rem;
+    font-weight: 700;
+    padding: 0.16rem 0.55rem;
+    border-radius: 999px;
+}
+
+.ritmo-saludable {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.ritmo-moderado {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.ritmo-acelerado {
+    background: #ffe4e6;
     color: #9f1239;
+}
+
+.ritmo-neutro {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.ritmo-desc {
+    color: var(--text-muted);
+    font-size: 0.78rem;
 }
 
 /* Gráficas Analíticas Chart.js */
@@ -389,11 +433,25 @@ body {
     font-weight: 600;
 }
 
-/* Captura y Selector Segmentado */
+/* Captura, Sub-etiqueta y Chips Rápidos */
 .capture-form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.7rem;
+}
+
+.capture-top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.subtag-input {
+    min-width: 240px;
+    font-size: 0.82rem;
+    padding: 0.42rem 0.7rem;
 }
 
 .segmented-control {
@@ -402,7 +460,6 @@ body {
     padding: 0.22rem;
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    align-self: flex-start;
     gap: 0.25rem;
 }
 
@@ -420,11 +477,10 @@ body {
     font-weight: 600;
     cursor: pointer;
     color: var(--text-secondary);
-    transition: all 0.15s ease;
 }
 
 .segment-option input[type="radio"]:checked + .segment-gasto {
-    background: var(--text-main);
+    background: var(--primary);
     color: #ffffff;
 }
 
@@ -451,11 +507,11 @@ input[type="password"],
 input[type="search"],
 select {
     padding: 0.62rem 0.8rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     font-size: 0.89rem;
     color: var(--text-main);
-    background: #ffffff;
+    background: var(--bg-page);
 }
 
 .capture-input-row input[type="text"] {
@@ -467,13 +523,48 @@ input:focus,
 select:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
 }
 
-.capture-examples {
-    margin-top: 0.6rem;
-    font-size: 0.78rem;
+.quick-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+
+.chips-label {
+    font-size: 0.76rem;
     color: var(--text-muted);
+    font-weight: 600;
+}
+
+.chip-btn {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 0.24rem 0.68rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.chip-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.subtag-pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    margin-left: 0.35rem;
 }
 
 /* Compromisos Fijos y Créditos */
@@ -538,7 +629,7 @@ select:focus {
 .mini-progress-track {
     width: 100%;
     height: 6px;
-    background: #e2e8f0;
+    background: var(--border-color);
     border-radius: 999px;
     overflow: hidden;
 }
@@ -612,9 +703,9 @@ select:focus {
 }
 
 .btn-outline {
-    background: #ffffff;
+    background: var(--bg-card);
     color: var(--primary);
-    border: 1px solid #c7d2fe;
+    border: 1px solid var(--border-color);
 }
 
 .btn-ghost {
@@ -629,12 +720,12 @@ select:focus {
 }
 
 .btn-sm {
-    padding: 0.38rem 0.72rem;
-    font-size: 0.78rem;
+    padding: 0.36rem 0.7rem;
+    font-size: 0.77rem;
 }
 
 .btn-xs {
-    padding: 0.25rem 0.6rem;
+    padding: 0.24rem 0.58rem;
     font-size: 0.74rem;
     border-radius: 999px;
 }
@@ -657,7 +748,6 @@ select:focus {
 .alert-exito {
     background: var(--emerald-bg);
     border-left-color: var(--emerald-border);
-    color: #064e3b;
 }
 
 .alert-advertencia {
@@ -701,15 +791,18 @@ select:focus {
 .progress-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 0.83rem;
     color: var(--text-secondary);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.45rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .progress-track {
     width: 100%;
     height: 10px;
-    background: #e2e8f0;
+    background: var(--border-color);
     border-radius: 999px;
     overflow: hidden;
 }
@@ -724,7 +817,7 @@ select:focus {
     background: var(--danger);
 }
 
-/* Tabla y Buscador */
+/* Tabla y Acciones de Fila */
 .table-toolbar {
     display: flex;
     justify-content: space-between;
@@ -761,21 +854,21 @@ select:focus {
 table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.87rem;
+    font-size: 0.86rem;
 }
 
 th,
 td {
     text-align: left;
-    padding: 0.65rem 0.75rem;
+    padding: 0.62rem 0.7rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 th {
     background: var(--bg-page);
     font-weight: 700;
-    color: #475569;
-    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-size: 0.73rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
@@ -817,15 +910,22 @@ tr.fila-ambigua {
     color: #92400e;
 }
 
+.row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
 .inline-category-form {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.3rem;
 }
 
 .inline-category-form select {
-    padding: 0.22rem 0.45rem;
-    font-size: 0.77rem;
+    padding: 0.2rem 0.42rem;
+    font-size: 0.76rem;
 }
 
 .empty-state {
@@ -833,7 +933,7 @@ tr.fila-ambigua {
     padding: 1.4rem 1rem;
     color: var(--text-muted);
     background: var(--bg-page);
-    border: 1px dashed #cbd5e1;
+    border: 1px dashed var(--border-color);
     border-radius: 8px;
     font-size: 0.83rem;
 }
@@ -876,9 +976,8 @@ tr.fila-ambigua {
     justify-content: space-between;
     padding: 0.42rem 0.58rem;
     background: var(--emerald-bg);
-    border: 1px solid #a7f3d0;
+    border: 1px solid var(--emerald-border);
     border-radius: 6px;
-    color: #064e3b;
 }
 
 .category-legend {
@@ -890,9 +989,9 @@ tr.fila-ambigua {
     color: var(--text-muted);
 }
 
-/* Footer Limpio y Comercial */
+/* Footer Limpio y Comercial v1.0 */
 .footer {
-    background: #ffffff;
+    background: var(--bg-card);
     padding: 1.15rem 0;
     color: var(--text-muted);
     font-size: 0.78rem;
@@ -911,6 +1010,7 @@ tr.fila-ambigua {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .footer-links a {

@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar sesión | Bolsillo</title>
+    <title>Iniciar sesión | Bolsillo v1.0</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const guardado = localStorage.getItem("bolsillo_theme");
+            if (guardado === "dark" || guardado === "light") {
+                document.documentElement.setAttribute("data-theme", guardado);
+            }
+        })();
+    </script>
 </head>
 <body class="auth-body">
     <main class="auth-wrapper">

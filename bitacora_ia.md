@@ -223,11 +223,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se ejecutaron `pytest -v` (`81 passed`), `ruff check --select E,F,B,S .` (`All checks passed!`, `0` avisos) y `pip-audit -r requirements.txt` (`No known vulnerabilities found`).
 - **Commit relacionado:** `docs(producto-etapa4): sincronizar README y bitacora con arquitectura multiusuario final y 81 pruebas`
 
+### Entrada 25 (Lanzamiento Oficial v1.0 — Reportes Excel `.xlsx`, Multi-gasto, Ritmo de Gasto, Modo Oscuro y Seed Demo)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Estandarizar la versión oficial en v1.0, implementar exportación a Excel (.xlsx) de 3 hojas con `openpyxl`, soporte multi-gasto en una sola frase, chips de gasto rápido, edición/eliminación de movimientos, indicador de ritmo de gasto (Burn Rate), selector de modo oscuro/claro, script `scripts/seed_demo.py` para sustentación y medición de cobertura con `pytest-cov`."*
+- **Decisión:** Aceptada
+- **Por qué:** Eleva el entregable final a un producto completo para sustentación: el parser multi-gasto permite registrar lotes cotidianos (`"almuerzo 15 mil, gasolina 20 lucas y café 5000"`) sin romper la regla individual de `extraer_monto`; el generador `.xlsx` entrega un libro contable de 3 hojas (`Resumen Mensual`, `Movimientos`, `Compromisos y Créditos`) con formato de moneda `$#,##0`; y `scripts/seed_demo.py` puebla datos 100% sintéticos locales.
+- **Verificación:** Se ejecutó `pytest --cov=src -v` pasando las **88 pruebas** con **89% de cobertura** sobre `src/`, y `ruff check --select E,F,B,S .` con **`0` avisos** (`All checks passed!`).
+- **Commit relacionado:** `feat(v1.0-backend)` y `feat(v1.0-release): integrar descarga Excel .xlsx, modo oscuro, chips rapidos, edicion en tabla y cierre v1.0`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 13 |
+| Aceptadas | 14 |
 | Aceptadas con cambios | 10 |
 | Rechazadas | 1 |
 

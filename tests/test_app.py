@@ -254,3 +254,55 @@ def test_flujo_web_multiusuario_login_rollover_y_sin_jerga_academica(
         {"email": "laura@bolsillo.co", "password": "MalPassword"},
     )
     assert resp_login_err.status_code == 401
+
+
+def test_flujo_web_v1_excel_multigasto_edicion_eliminacion_y_modo_oscuro(
+    tmp_path: Path,
+) -> None:
+    """Verifica versión v1.0, descarga Excel .xlsx, multi-gasto, eliminar y tema."""
+    ruta_db = tmp_path / "test_web_v1.db"
+    cliente = ClientePruebaWeb(crear_app(ruta_db))
+    cliente.post("/presupuesto", {"monto_mensual": "1500000"})
+
+    inicio = cliente.get("/")
+    assert "v1.0" in inicio.text
+    assert "v2.0" not in inicio.text
+    assert "btn-tema-toggle" in inicio.text
+    assert "chip-btn" in inicio.text
+    assert "Ritmo saludable" in inicio.text
+
+    # Multi-gasto con sub-etiqueta en una sola frase desde formulario web
+    resp_multi = cliente.post(
+        "/gastos",
+        {
+            "texto": "almuerzo 15 mil, gasolina moto 20 lucas y café 5000",
+            "sub_etiqueta": "Martes",
+        },
+    )
+    assert "Se registraron 3 movimientos exitosamente ($40.000)" in resp_multi.text
+    assert "Martes" in resp_multi.text
+
+    # Editar movimiento #1 y eliminar movimiento #2
+    resp_edit = cliente.post(
+        "/transacciones/editar",
+        {
+            "transaccion_id": "1",
+            "concepto": "Almuerzo especial",
+            "monto": "18000",
+            "categoria": "Alimentación",
+            "sub_etiqueta": "Martes",
+        },
+    )
+    assert "Movimiento actualizado exitosamente" in resp_edit.text
+
+    resp_del = cliente.post(
+        "/transacciones/eliminar",
+        {"transaccion_id": "2"},
+    )
+    assert "Movimiento eliminado exitosamente" in resp_del.text
+
+    # Descargar reporte Excel (.xlsx)
+    resp_xlsx = cliente.get("/exportar-excel")
+    assert resp_xlsx.status_code == 200
+    assert resp_xlsx.body[:2] == b"PK"
+    assert "Reporte_Finanzas_" in resp_xlsx.headers.get("Content-Disposition", "")

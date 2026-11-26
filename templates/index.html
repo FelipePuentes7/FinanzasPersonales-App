@@ -1,10 +1,18 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolsillo | Finanzas Personales y Presupuesto Mensual</title>
+    <title>Bolsillo v1.0 | Finanzas Personales y Presupuesto Mensual</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const guardado = localStorage.getItem("bolsillo_theme");
+            if (guardado === "dark" || guardado === "light") {
+                document.documentElement.setAttribute("data-theme", guardado);
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -38,6 +46,9 @@
             </div>
 
             <div class="topbar-user">
+                <button type="button" id="btn-tema-toggle" class="btn btn-ghost btn-xs" aria-label="Alternar modo oscuro o claro">
+                    Modo oscuro / claro
+                </button>
                 <span class="user-chip">{{NOMBRE_USUARIO}}</span>
                 <form action="/logout" method="post" class="inline-form">
                     <button type="submit" class="btn btn-ghost btn-xs">Salir</button>
@@ -98,10 +109,14 @@
             </article>
         </section>
 
-        <!-- Barra de Progreso de Ejecución Mensual -->
+        <!-- Barra de Progreso e Indicador de Ritmo de Gasto (Burn Rate) -->
         <section class="card progress-card">
             <div class="progress-header">
-                <span>Porcentaje de presupuesto utilizado en {{ETIQUETA_PERIODO}}</span>
+                <div class="burn-rate-row">
+                    <span>Ejecución presupuestal en {{ETIQUETA_PERIODO}}</span>
+                    <span class="ritmo-pill {{RITMO_CLASE}}">{{RITMO_ESTADO}}</span>
+                    <small class="ritmo-desc">{{RITMO_DESCRIPCION}}</small>
+                </div>
                 <strong class="tabular-nums">{{PORCENTAJE_CONSUMO}}%</strong>
             </div>
             <div class="progress-track" role="progressbar" aria-valuenow="{{PORCENTAJE_CONSUMO}}" aria-valuemin="0" aria-valuemax="100">
@@ -112,27 +127,36 @@
         <div class="main-grid">
             <section class="content-column">
 
-                <!-- Captura Rápida en Lenguaje Natural -->
+                <!-- Captura Rápida Multi-gasto y Chips de 1 Clic -->
                 <div class="card capture-card">
                     <div class="card-header-row">
                         <div>
                             <h2>Registrar movimiento</h2>
-                            <p class="card-sub">Escribe con naturalidad un gasto o un ingreso extra para actualizar tu balance</p>
+                            <p class="card-sub">Escribe uno o varios movimientos separados por comas (ej. <em>"almuerzo 15 mil, gasolina 20 lucas y café 5000"</em>)</p>
                         </div>
                         <span class="hint-tag">Presiona Enter para guardar</span>
                     </div>
 
-                    <form action="/gastos" method="post" class="capture-form">
+                    <form action="/gastos" method="post" class="capture-form" id="form-captura-principal">
                         <input type="hidden" name="periodo" value="{{PERIODO_ACTIVO}}">
-                        <div class="segmented-control" role="radiogroup" aria-label="Tipo de movimiento">
-                            <label class="segment-option">
-                                <input type="radio" name="tipo_movimiento" value="gasto" checked>
-                                <span class="segment-btn segment-gasto">Gasto (&minus;)</span>
-                            </label>
-                            <label class="segment-option">
-                                <input type="radio" name="tipo_movimiento" value="ingreso">
-                                <span class="segment-btn segment-ingreso">Ingreso extra (+)</span>
-                            </label>
+                        <div class="capture-top-controls">
+                            <div class="segmented-control" role="radiogroup" aria-label="Tipo de movimiento">
+                                <label class="segment-option">
+                                    <input type="radio" name="tipo_movimiento" value="gasto" checked>
+                                    <span class="segment-btn segment-gasto">Gasto (&minus;)</span>
+                                </label>
+                                <label class="segment-option">
+                                    <input type="radio" name="tipo_movimiento" value="ingreso">
+                                    <span class="segment-btn segment-ingreso">Ingreso extra (+)</span>
+                                </label>
+                            </div>
+                            <input
+                                type="text"
+                                name="sub_etiqueta"
+                                class="subtag-input"
+                                placeholder="Sub-etiqueta opcional (ej: Universidad, Hogar)"
+                                aria-label="Sub-etiqueta opcional"
+                            >
                         </div>
 
                         <div class="capture-input-row">
@@ -141,7 +165,7 @@
                                 id="input-gasto"
                                 name="texto"
                                 value="{{VALOR_INPUT_TEXTO}}"
-                                placeholder="Ej: almuerzo corriente 14000 | 20 lucas gasolina moto | me entraron 1.200.000 trabajo extra"
+                                placeholder="Ej: almuerzo 15 mil, gasolina moto 20 lucas | me entraron 1.200.000 trabajo extra"
                                 autocomplete="off"
                                 autofocus
                                 required
@@ -149,9 +173,16 @@
                             <button type="submit" class="btn btn-primary">Registrar</button>
                         </div>
                     </form>
-                    <p class="capture-examples">
-                        Reconoce expresiones cotidianas (<strong>lucas</strong>, <strong>mil</strong>) y abonos como <em>"me entraron..."</em> o <em>"ingreso..."</em> para recuperar saldos en rojo.
-                    </p>
+
+                    <!-- Chips de Gasto Rápido en 1 Clic -->
+                    <div class="quick-chips" aria-label="Atajos de gasto rápido">
+                        <span class="chips-label">Gasto rápido (1 clic):</span>
+                        <button type="button" class="chip-btn" data-frase="almuerzo corriente 15000">Almuerzo $15.000</button>
+                        <button type="button" class="chip-btn" data-frase="20 lucas de gasolina para la moto">Gasolina $20.000</button>
+                        <button type="button" class="chip-btn" data-frase="café y empanada 6500">Café $6.500</button>
+                        <button type="button" class="chip-btn" data-frase="pasaje transporte 6000">Transporte $6.000</button>
+                        <button type="button" class="chip-btn" data-frase="fotocopias estudio 4500">Fotocopias $4.500</button>
+                    </div>
                 </div>
 
                 <!-- Analítica Visual con Chart.js -->
@@ -240,7 +271,7 @@
                     </div>
                 </div>
 
-                <!-- Historial de Movimientos con Buscador y Filtro por Categoría -->
+                <!-- Historial de Movimientos con Buscador, Edición/Eliminación y Exportación Excel -->
                 <div class="card table-card">
                     <div class="table-toolbar">
                         <div>
@@ -268,8 +299,11 @@
                                 <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
                             </form>
 
+                            <a href="/exportar-excel?periodo={{PERIODO_ACTIVO}}" class="btn btn-emerald btn-sm" id="btn-exportar-excel">
+                                Descargar Excel (.xlsx)
+                            </a>
                             <a href="/exportar-csv?periodo={{PERIODO_ACTIVO}}" class="btn btn-outline btn-sm" id="btn-exportar-csv">
-                                Descargar CSV
+                                CSV
                             </a>
                         </div>
                     </div>
@@ -349,17 +383,41 @@
         <div class="container footer-inner">
             <span><strong>Bolsillo</strong> &bull; Gestión financiera personal</span>
             <div class="footer-links">
-                <a href="/exportar-csv?periodo={{PERIODO_ACTIVO}}">Exportar respaldo CSV</a>
+                <a href="/exportar-excel?periodo={{PERIODO_ACTIVO}}">Exportar reporte Excel (.xlsx)</a>
+                <span>&bull;</span>
+                <a href="/exportar-csv?periodo={{PERIODO_ACTIVO}}">Respaldo CSV</a>
                 <span>&bull;</span>
                 <a href="/login">Cambiar de cuenta</a>
                 <span>&bull;</span>
-                <span>v2.0</span>
+                <span>v1.0</span>
             </div>
         </div>
     </footer>
 
     <script>
         (function() {
+            const btnTema = document.getElementById("btn-tema-toggle");
+            if (btnTema) {
+                btnTema.addEventListener("click", function() {
+                    const actual = document.documentElement.getAttribute("data-theme") || "light";
+                    const nuevo = actual === "dark" ? "light" : "dark";
+                    document.documentElement.setAttribute("data-theme", nuevo);
+                    localStorage.setItem("bolsillo_theme", nuevo);
+                });
+            }
+
+            const chips = document.querySelectorAll(".chip-btn");
+            const inputGasto = document.getElementById("input-gasto");
+            const formCaptura = document.getElementById("form-captura-principal");
+            chips.forEach(function(chip) {
+                chip.addEventListener("click", function() {
+                    if (inputGasto && formCaptura) {
+                        inputGasto.value = chip.getAttribute("data-frase") || "";
+                        formCaptura.submit();
+                    }
+                });
+            });
+
             if (typeof Chart === "undefined") return;
             const datosCat = {{DATOS_JSON_CATEGORIAS}};
             const datosFlujo = {{DATOS_JSON_FLUJO}};

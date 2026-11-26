@@ -16,8 +16,8 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **`HU-10` (Evolución SDLC - Gastos Fijos Mensuales):** Plantilla persistente de compromisos mensuales recurrentes (arriendo, internet, plan celular, servicios) con aplicación al balance del mes en 1 clic sin redigitarlos desde cero.
 - **`HU-11` (Evolución SDLC - Control de Créditos y Cuotas):** Seguimiento de obligaciones a plazos (nombre del crédito, valor de cuota, progreso `cuotas_pagadas / total_cuotas`, saldo pendiente) con botón rápido `"Registrar pago de cuota"` que descuenta del disponible mensual y avanza el contador de cuotas.
 - **`HU-12` (Evolución Producto - Sistema Multiusuario y Autenticación con `scrypt`):** Registro (`/register`) e inicio de sesión (`/login`) con contraseñas protegidas mediante `scrypt` + sal criptográfica aleatoria y aislamiento estricto de datos por `usuario_id` en SQLite.
-- **`HU-13` (Evolución Producto - Contabilidad Mes a Mes con Arrastre Inteligente / Rollover):** Navegación por periodos mensuales (`YYYY-MM`) y cierre mensual que arrastra automáticamente el saldo a favor (ahorro/ganancia) o el saldo pendiente (deuda/sobregiro) hacia el mes siguiente, junto con cálculo de **Meta de Ahorro** y **Presupuesto Diario Sugerido**.
-- **`HU-14` (Evolución Producto - Analítica Visual Minimalista y Buscador Instantáneo):** Interfaz de producto fintech limpia (sin códigos académicos internos en la vista del usuario), equipada con gráficas interactivas en Chart.js (dona de distribución por categoría y barras de flujo mensual) y buscador en tiempo real.
+- **`HU-13` (Evolución Producto - Contabilidad Mes a Mes con Arrastre Inteligente / Rollover):** Navegación por periodos mensuales (`YYYY-MM`) y cierre mensual que arrastra automáticamente el saldo a favor (ahorro/ganancia) o el saldo pendiente (deuda/sobregiro) hacia el mes siguiente, junto con cálculo de **Meta de Ahorro**, **Presupuesto Diario Sugerido** e indicador de **Ritmo de Gasto (Burn Rate)**.
+- **`HU-14` (Evolución Producto v1.0 - Reportes Excel `.xlsx`, Multi-gasto, Modo Oscuro y Analítica):** Exportación a libro Excel profesional de 3 hojas (`Reporte_Finanzas_YYYY_MM.xlsx`), captura multi-gasto en una sola frase (`"almuerzo 15 mil, gasolina 20 lucas y café 5000"`), chips de gasto rápido en 1 clic, edición/eliminación de movimientos, selector de Modo Oscuro/Claro, gráficas Chart.js y script de datos sintéticos de demostración (`scripts/seed_demo.py`).
 
 ---
 
@@ -27,8 +27,9 @@ El sistema integra la totalidad del alcance funcional y no funcional definido en
 - **Gestor de paquetes y entorno:** `pip` y módulo estándar `venv`.
 - **Base de datos:** `sqlite3` (incluido en la biblioteca estándar de Python, persistencia local en `data/finanzas.db`).
 - **Dependencias con versiones exactas fijadas en [`requirements.txt`](file:///c:/Users/PIPE/OneDrive/Documentos/FinanzasPersonales-App/FinanzasPersonales-App/requirements.txt):**
-  - `pytest==9.2.0` (suite de 81 pruebas unitarias, parametrizadas, de abuso, aislamiento multiusuario y rollover mensual).
-  - `ruff==0.11.2` (linter estático con reglas `E, F, B, S`).
+  - `pytest==9.2.0` y `pytest-cov==6.0.0` (suite de **88 pruebas automatizadas** con **89% de cobertura** sobre `src/`).
+  - `openpyxl==3.1.5` (generación de reportes financieros multi-hoja en formato Excel `.xlsx`).
+  - `ruff==0.11.2` (linter estático con reglas `E, F, B, S` en `0` avisos).
   - `pylint==4.1.4` (análisis estático PEP 8 con calificación `>= 9.9/10` superando el mínimo de 9.0 exigido por `RNF-05`).
   - `pip-audit==2.9.0` (auditoría de vulnerabilidades en dependencias).
 
@@ -63,10 +64,14 @@ Copy-Item .env.example .env
 ### A. Iniciar el Panel Web Interactivo (`http://127.0.0.1:5000`)
 
 ```powershell
+# (Opcional) Poblar cuenta de demostración con 2 meses de datos sintéticos para sustentación:
+python scripts/seed_demo.py
+
+# Iniciar el servidor web local v1.0:
 python app.py
 ```
 
-Abra su navegador en **`http://127.0.0.1:5000`** para usar el panel visual, configurar su presupuesto mensual en la barra lateral, registrar gastos en lenguaje natural, filtrar por categoría y exportar el reporte CSV.
+Abra su navegador en **`http://127.0.0.1:5000`** (o inicie sesión en `/login` con la cuenta demo `demo@bolsillo.co` / `DemoBolsillo2026`) para usar el panel visual, alternar entre modo claro y oscuro, registrar múltiples gastos en una sola frase, controlar gastos fijos y créditos a cuotas, y descargar el reporte Excel `.xlsx`.
 
 ### B. Probar los Módulos de Dominio por Consola
 
@@ -78,11 +83,11 @@ python -c "from src.parser_montos import extraer_monto; from src.clasificador im
 
 ## 5. Pruebas
 
-Ejecute la suite completa de **81 pruebas automatizadas** y las herramientas de calidad y seguridad con los siguientes comandos:
+Ejecute la suite completa de **88 pruebas automatizadas** (con medición de cobertura del **89%** en `src/`) y las herramientas de calidad y seguridad con los siguientes comandos:
 
 ```powershell
-# 1. Ejecutar todas las pruebas unitarias, de abuso y de integración web
-pytest -v
+# 1. Ejecutar todas las pruebas unitarias, de abuso, multiusuario y medir cobertura
+pytest --cov=src -v
 
 # 2. Ejecutar el linter ruff con reglas de estilo, errores, bugs y seguridad (E, F, B, S)
 ruff check --select E,F,B,S .
