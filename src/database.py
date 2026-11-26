@@ -87,6 +87,7 @@ def _asegurar_columnas_migracion(cursor: sqlite3.Cursor) -> None:
     migraciones = (
         ("transacciones", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
         ("transacciones", "periodo", "TEXT NOT NULL DEFAULT '2026-11'"),
+        ("transacciones", "sub_etiqueta", "TEXT NOT NULL DEFAULT ''"),
         ("ingresos_extra", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
         ("ingresos_extra", "periodo", "TEXT NOT NULL DEFAULT '2026-11'"),
         ("gastos_fijos", "usuario_id", "INTEGER NOT NULL DEFAULT 1"),
@@ -162,6 +163,7 @@ def inicializar_db(ruta_db: str | Path = RUTA_DB_DEFECTO) -> None:
                 concepto TEXT NOT NULL,
                 monto INTEGER NOT NULL CHECK (monto > 0),
                 categoria TEXT NOT NULL,
+                sub_etiqueta TEXT NOT NULL DEFAULT '',
                 es_ambiguo INTEGER NOT NULL DEFAULT 0
             )
             """
@@ -489,6 +491,7 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
     categoria: str,
     *,
     fecha: str | None = None,
+    sub_etiqueta: str = "",
     es_ambiguo: bool = False,
     usuario_id: int = 1,
     periodo: str | None = None,
@@ -498,6 +501,7 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
     concepto_limpio = _validar_datos_transaccion(concepto, monto, categoria)
     fecha_registro = fecha or datetime.now().strftime("%Y-%m-%d")
     periodo_activo = (periodo or fecha_registro[:7]).strip()
+    etiqueta_limpia = sub_etiqueta.strip() if isinstance(sub_etiqueta, str) else ""
     bandera_ambiguo = 1 if es_ambiguo else 0
 
     inicializar_db(ruta_db)
@@ -505,9 +509,10 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
         cursor = conn.execute(
             """
             INSERT INTO transacciones (
-                usuario_id, periodo, fecha, concepto, monto, categoria, es_ambiguo
+                usuario_id, periodo, fecha, concepto, monto,
+                categoria, sub_etiqueta, es_ambiguo
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 usuario_id,
@@ -516,6 +521,7 @@ def insertar_transaccion(  # pylint: disable=too-many-arguments
                 concepto_limpio,
                 monto,
                 categoria,
+                etiqueta_limpia,
                 bandera_ambiguo,
             ),
         )
@@ -548,7 +554,7 @@ def listar_transacciones(
         filas = conn.execute(
             """
             SELECT id, usuario_id, periodo, fecha, concepto, monto,
-                   categoria, es_ambiguo
+                   categoria, sub_etiqueta, es_ambiguo
             FROM transacciones
             WHERE usuario_id = ?
               AND (? = '' OR periodo = ?)
@@ -576,6 +582,7 @@ def listar_transacciones(
             "concepto": str(fila["concepto"]),
             "monto": int(fila["monto"]),
             "categoria": str(fila["categoria"]),
+            "sub_etiqueta": str(fila["sub_etiqueta"] or ""),
             "es_ambiguo": bool(fila["es_ambiguo"]),
         }
         for fila in filas
@@ -602,6 +609,56 @@ def actualizar_categoria_transaccion(
             WHERE id = ? AND usuario_id = ?
             """,
             (nueva_categoria, transaccion_id, usuario_id),
+        )
+        return cursor.rowcount > 0
+
+
+def editar_transaccion(  # pylint: disable=too-many-arguments
+    transaccion_id: int,
+    *,
+    concepto: str,
+    monto: int,
+    categoria: str,
+    sub_etiqueta: str = "",
+    usuario_id: int = 1,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> bool:
+    """Edita el concepto, monto, categoría y sub-etiqueta de un movimiento."""
+    concepto_limpio = _validar_datos_transaccion(concepto, monto, categoria)
+    etiqueta_limpia = sub_etiqueta.strip() if isinstance(sub_etiqueta, str) else ""
+
+    inicializar_db(ruta_db)
+    with obtener_conexion(ruta_db) as conn:
+        cursor = conn.execute(
+            """
+            UPDATE transacciones
+            SET concepto = ?, monto = ?, categoria = ?, sub_etiqueta = ?, es_ambiguo = 0
+            WHERE id = ? AND usuario_id = ?
+            """,
+            (
+                concepto_limpio,
+                monto,
+                categoria,
+                etiqueta_limpia,
+                transaccion_id,
+                usuario_id,
+            ),
+        )
+        return cursor.rowcount > 0
+
+
+def eliminar_transaccion_usuario(
+    transaccion_id: int,
+    *,
+    usuario_id: int = 1,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> bool:
+    """Elimina una transacción verificando que pertenezca al usuario autenticado."""
+    inicializar_db(ruta_db)
+    with obtener_conexion(ruta_db) as conn:
+        cursor = conn.execute(
+            "DELETE FROM transacciones WHERE id = ? AND usuario_id = ?",
+            (transaccion_id, usuario_id),
         )
         return cursor.rowcount > 0
 

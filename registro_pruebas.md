@@ -156,6 +156,9 @@ Según **`HU-04`** (Escenarios 1 y 2) y **`HU-06`** (Escenarios 1 y 2), al proce
 | Partición válida (`HU-13`) | Rollover con ganancia/ahorro (`+$250.000`) de `2026-10` a `2026-11` | $P=1\text{M}, G=750\text{k}$ en `2026-10` | `arrastre=+250000, saldo_nov=1250000, tipo='ganancia'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[ganancia]` |
 | Partición válida (`HU-13`) | Rollover con deuda/sobregiro (`-$180.000`) de `2026-10` a `2026-11` | $P=1\text{M}, G=1.18\text{M}$ en `2026-10` | `arrastre=-180000, saldo_nov=820000, tipo='deuda'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[deuda]` |
 | Límite (`HU-13`) | Rollover en equilibrio exacto (`$0`) | $P=1\text{M}, G=1.2\text{M}, I=200\text{k}$ | `arrastre=0, saldo_nov=1000000, tipo='equilibrio'` | `test_hu13_rollover_mensual_arrastre_ganancia_deuda_y_equilibrio[equilibrio]` |
+| Partición válida (v1.0 Multi-gasto) | Frase compuesta con 3 gastos separados por coma e `'y'` | `"almuerzo 15 mil, gasolina moto 20 lucas y fotocopias 3000"` | `3` transacciones (`$38.000`) en 3 categorías | `test_multigasto_en_una_sola_frase_y_edicion_eliminacion` |
+| Partición válida (v1.0 Burn Rate) | Comparación `% consumo` vs `% mes transcurrido` | `20%` vs `33.3%`, `45%` vs `33.3%`, `75%` vs `33.3%` | `'Ritmo saludable'`, `'Ritmo moderado'`, `'Consumo acelerado'` | `test_indicador_ritmo_de_gasto_burn_rate` |
+| Partición válida (v1.0 Reporte `.xlsx`) | Exportación de libro Excel OpenXML de 3 hojas | Cuenta con movimientos en `'2026-11'` | `Reporte_Finanzas_2026_11.xlsx` con 3 hojas (`Resumen Mensual`, `Movimientos`, `Compromisos y Créditos`) | `test_exportacion_excel_xlsx_tres_hojas_y_seed_demo` |
 
 ---
 

@@ -1,9 +1,10 @@
-"""Módulo de servicios y lógica de negocio para FinanzasPersonales-App.
+"""Módulo de servicios y lógica de negocio para FinanzasPersonales-App (v1.0).
 
-Orquesta la captura en lenguaje natural de gastos e ingresos extra (HU-01,
-HU-02, HU-09), clasificación temática (HU-03), cálculo de balance mensual
-con arrastre inteligente / rollover (HU-04, HU-05, HU-13), alertas preventivas
-(HU-06), filtrado y búsqueda por categoría (HU-07, HU-14), exportación CSV
+Orquesta la captura en lenguaje natural de gastos simples y multi-gasto en una
+sola frase (HU-01, HU-02), ingresos extra (HU-09), clasificación temática
+(HU-03), balance mensual con arrastre inteligente / rollover (HU-04, HU-05,
+HU-13), indicador de ritmo de gasto (Burn Rate), alertas preventivas (HU-06),
+filtrado y búsqueda (HU-07, HU-14), exportación a CSV y Excel `.xlsx` multi-hoja
 (HU-08), gastos fijos recurrentes (HU-10) y créditos a cuotas (HU-11).
 """
 
@@ -33,6 +34,7 @@ from src.database import (
     obtener_presupuesto,
 )
 from src.parser_montos import MENSAJE_MONTO_AMBIGUO, extraer_monto
+from src.reporte_excel import construir_archivo_excel_xlsx
 
 MENSAJE_GASTO_REGISTRADO: str = "Gasto registrado exitosamente"
 MENSAJE_INGRESO_REGISTRADO: str = "Ingreso extra registrado exitosamente"
@@ -90,6 +92,10 @@ PATRON_PREFIJO_INGRESO: re.Pattern[str] = re.compile(
     re.IGNORECASE,
 )
 PATRON_PERIODO_YYYY_MM: re.Pattern[str] = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+PATRON_SEPARADOR_MULTIGASTO: re.Pattern[str] = re.compile(
+    r"\s*(?:,|;|\by\b|\be\b)\s*",
+    re.IGNORECASE,
+)
 
 
 def formatear_pesos(valor: int | None) -> str:
@@ -150,6 +156,115 @@ def _calcular_porcentaje_truncado(numerador: int, denominador: int) -> float:
     return int((numerador / denominador) * 1000) / 10.0
 
 
+def calcular_ritmo_gasto(
+    *,
+    porcentaje_consumo: float,
+    presupuesto_configurado: bool,
+    en_sobregiro: bool,
+    periodo: str | None = None,
+    dia_referencia: int | None = None,
+) -> dict[str, Any]:
+    """Evalúa el ritmo de gasto (Burn Rate) frente al porcentaje del mes transcurrido.
+
+    Args:
+        porcentaje_consumo (float): Porcentaje actual de presupuesto consumido.
+        presupuesto_configurado (bool): Indica si el mes tiene presupuesto activo.
+        en_sobregiro (bool): Indica si el saldo disponible ya es negativo.
+        periodo (str | None): Periodo `'YYYY-MM'` evaluado.
+        dia_referencia (int | None): Día del mes opcional para pruebas deterministas.
+
+    Returns:
+        dict[str, Any]: Diccionario con `estado`, `clase_css`, `porcentaje_mes`,
+            `porcentaje_consumo` y `descripcion`.
+    """
+    anio, mes, _ = _validar_y_descomponer_periodo(periodo)
+    total_dias = calendar.monthrange(anio, mes)[1]
+    dia_actual = (
+        min(max(dia_referencia, 1), total_dias)
+        if dia_referencia is not None
+        else min(datetime.now().day, total_dias)
+    )
+    pct_mes = _calcular_porcentaje_truncado(dia_actual, total_dias)
+
+    if not presupuesto_configurado:
+        return {
+            "estado": "Pendiente de presupuesto",
+            "clase_css": "ritmo-neutro",
+            "porcentaje_mes": pct_mes,
+            "porcentaje_consumo": 0.0,
+            "descripcion": "Define tu presupuesto mensual para medir el ritmo.",
+        }
+
+    if en_sobregiro or porcentaje_consumo > (pct_mes + 20.0):
+        return {
+            "estado": "Consumo acelerado",
+            "clase_css": "ritmo-acelerado",
+            "porcentaje_mes": pct_mes,
+            "porcentaje_consumo": porcentaje_consumo,
+            "descripcion": (
+                f"Has consumido {porcentaje_consumo:.1f}% con el "
+                f"{pct_mes:.1f}% del mes transcurrido."
+            ),
+        }
+
+    if porcentaje_consumo > (pct_mes + 5.0):
+        return {
+            "estado": "Ritmo moderado",
+            "clase_css": "ritmo-moderado",
+            "porcentaje_mes": pct_mes,
+            "porcentaje_consumo": porcentaje_consumo,
+            "descripcion": (
+                f"Consumo ligeramente superior al avance del mes ({pct_mes:.1f}%)."
+            ),
+        }
+
+    return {
+        "estado": "Ritmo saludable",
+        "clase_css": "ritmo-saludable",
+        "porcentaje_mes": pct_mes,
+        "porcentaje_consumo": porcentaje_consumo,
+        "descripcion": (
+            f"Excelente control: {porcentaje_consumo:.1f}% gastado vs. "
+            f"{pct_mes:.1f}% del calendario."
+        ),
+    }
+
+
+def dividir_frase_multigasto(texto: str) -> list[str]:
+    """Descompone una frase con múltiples gastos separados por comas o `'y'`.
+
+    Solo divide la cadena cuando existen 2 o más fragmentos y cada uno contiene
+    tanto un monto válido independiente (`extraer_monto`) como al menos una
+    palabra descriptiva de concepto (evitando dividir fracciones como `'1 y media'`).
+
+    Args:
+        texto (str): Frase ingresada por el usuario.
+
+    Returns:
+        list[str]: Lista de fragmentos independientes, o `[texto]` si es un solo gasto.
+    """
+    if not isinstance(texto, str) or not texto.strip():
+        return []
+
+    candidatos = [
+        frag.strip()
+        for frag in PATRON_SEPARADOR_MULTIGASTO.split(texto.strip())
+        if frag and frag.strip()
+    ]
+    if len(candidatos) < 2:
+        return [texto.strip()]
+
+    for fragmento in candidatos:
+        if not re.search(r"[a-záéíóúñ]{3,}", fragmento, re.IGNORECASE):
+            return [texto.strip()]
+        try:
+            extraer_monto(fragmento)
+        except ValueError:
+            return [texto.strip()]
+
+    return candidatos
+
+
 def es_frase_ingreso_extra(texto: str) -> bool:
     """Detecta si una frase en lenguaje natural describe un ingreso extra o abono."""
     if not isinstance(texto, str) or not texto.strip():
@@ -200,21 +315,125 @@ def registrar_ingreso_desde_texto(
     }
 
 
+def _registrar_multigasto(  # pylint: disable=too-many-arguments,too-many-locals
+    fragmentos: list[str],
+    *,
+    sub_etiqueta: str,
+    usuario_id: int,
+    periodo: str | None,
+    ruta_db: str | Path,
+    cliente_llm: Callable[[dict[str, Any]], str] | None,
+) -> dict[str, Any]:
+    """Registra secuencialmente cada movimiento de una frase multi-gasto."""
+    registrados: list[dict[str, Any]] = []
+    suma_lote = 0
+
+    for frag in fragmentos:
+        monto_i = extraer_monto(frag)
+        concepto_i = extraer_concepto(frag)
+        cat_i, amb_i = clasificar_gasto(frag, cliente_llm=cliente_llm)
+        tx_id_i = insertar_transaccion(
+            concepto=concepto_i,
+            monto=monto_i,
+            categoria=cat_i,
+            sub_etiqueta=sub_etiqueta,
+            es_ambiguo=amb_i,
+            usuario_id=usuario_id,
+            periodo=periodo,
+            ruta_db=ruta_db,
+        )
+        suma_lote += monto_i
+        registrados.append(
+            {
+                "id": tx_id_i,
+                "concepto": concepto_i,
+                "monto": monto_i,
+                "categoria": cat_i,
+                "sub_etiqueta": sub_etiqueta,
+                "es_ambiguo": amb_i,
+            }
+        )
+
+    datos_periodo = obtener_datos_periodo(
+        ruta_db,
+        usuario_id=usuario_id,
+        periodo=periodo,
+    )
+    presupuesto = datos_periodo["presupuesto_base"]
+    total_gastado = sum(
+        int(item["monto"])
+        for item in listar_transacciones(
+            ruta_db=ruta_db,
+            usuario_id=usuario_id,
+            periodo=periodo,
+        )
+    )
+    total_ingresos = sum(
+        int(item["monto"])
+        for item in listar_ingresos_extra(
+            ruta_db=ruta_db,
+            usuario_id=usuario_id,
+            periodo=periodo,
+        )
+    )
+    arrastre = int(datos_periodo["saldo_arrastrado"])
+    meta_ahorro = int(datos_periodo["meta_ahorro"])
+
+    alerta_sobregiro: str | None = None
+    if (
+        presupuesto is not None
+        and (presupuesto + total_ingresos + arrastre - meta_ahorro - total_gastado) < 0
+    ):
+        alerta_sobregiro = MENSAJE_ALERTA_SOBREGIRO
+
+    return {
+        "registrado": True,
+        "requiere_confirmacion": False,
+        "es_multigasto": True,
+        "cantidad_registrados": len(registrados),
+        "tipo_alerta": "exito",
+        "mensaje": (
+            f"Se registraron {len(registrados)} movimientos exitosamente "
+            f"({formatear_pesos(suma_lote)})"
+        ),
+        "alerta_sobregiro": alerta_sobregiro,
+        "porcentaje_presupuesto": (
+            _calcular_porcentaje_truncado(suma_lote, presupuesto)
+            if presupuesto is not None
+            else 0.0
+        ),
+        "transacciones": registrados,
+        "transaccion": registrados[-1],
+    }
+
+
 def registrar_gasto_desde_texto(  # pylint: disable=too-many-arguments,too-many-locals
     texto: str,
     *,
+    sub_etiqueta: str = "",
     confirmado: bool = False,
     usuario_id: int = 1,
     periodo: str | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
     cliente_llm: Callable[[dict[str, Any]], str] | None = None,
 ) -> dict[str, Any]:
-    """Procesa, valida y registra un gasto ingresado en lenguaje natural."""
+    """Procesa, valida y registra uno o varios gastos en lenguaje natural."""
     if not isinstance(texto, str) or not texto.strip():
         raise ValueError(MENSAJE_SIN_MONTO_VALIDO)
 
     if len(texto) <= 280 and not PATRON_INDICADOR_MONTO_O_AMBIGUEDAD.search(texto):
         raise ValueError(MENSAJE_SIN_MONTO_VALIDO)
+
+    fragmentos = dividir_frase_multigasto(texto)
+    if len(fragmentos) >= 2:
+        return _registrar_multigasto(
+            fragmentos,
+            sub_etiqueta=sub_etiqueta,
+            usuario_id=usuario_id,
+            periodo=periodo,
+            ruta_db=ruta_db,
+            cliente_llm=cliente_llm,
+        )
 
     monto = extraer_monto(texto)
     concepto = extraer_concepto(texto)
@@ -249,6 +468,7 @@ def registrar_gasto_desde_texto(  # pylint: disable=too-many-arguments,too-many-
                 "concepto": concepto,
                 "monto": monto,
                 "categoria": categoria,
+                "sub_etiqueta": sub_etiqueta,
                 "es_ambiguo": es_ambiguo,
             },
         }
@@ -257,6 +477,7 @@ def registrar_gasto_desde_texto(  # pylint: disable=too-many-arguments,too-many-
         concepto=concepto,
         monto=monto,
         categoria=categoria,
+        sub_etiqueta=sub_etiqueta,
         es_ambiguo=es_ambiguo,
         usuario_id=usuario_id,
         periodo=periodo,
@@ -292,6 +513,8 @@ def registrar_gasto_desde_texto(  # pylint: disable=too-many-arguments,too-many-
     return {
         "registrado": True,
         "requiere_confirmacion": False,
+        "es_multigasto": False,
+        "cantidad_registrados": 1,
         "tipo_alerta": "exito",
         "mensaje": MENSAJE_GASTO_REGISTRADO,
         "alerta_sobregiro": alerta_sobregiro,
@@ -305,6 +528,7 @@ def registrar_gasto_desde_texto(  # pylint: disable=too-many-arguments,too-many-
             "concepto": concepto,
             "monto": monto,
             "categoria": categoria,
+            "sub_etiqueta": sub_etiqueta,
             "es_ambiguo": es_ambiguo,
         },
     }
@@ -331,6 +555,7 @@ def aplicar_gasto_fijo_al_mes(
         concepto=concepto_tx,
         monto=int(seleccionado["monto"]),
         categoria=str(seleccionado["categoria"]),
+        sub_etiqueta="Fijo mensual",
         es_ambiguo=False,
         usuario_id=usuario_id,
         periodo=periodo,
@@ -371,6 +596,7 @@ def registrar_pago_cuota_credito(
         concepto=concepto_tx,
         monto=int(credito["valor_cuota"]),
         categoria=str(credito["categoria"]),
+        sub_etiqueta="Cuota crédito",
         es_ambiguo=False,
         usuario_id=usuario_id,
         periodo=periodo,
@@ -398,26 +624,7 @@ def cerrar_y_avanzar_mes(
     nuevo_presupuesto_base: int | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> dict[str, Any]:
-    """Cierra el mes actual y arrastra el saldo positivo o negativo al siguiente.
-
-    - Si el saldo final del mes es positivo (`> 0`), se arrastra como ganancia/ahorro
-      a favor (`saldo_arrastrado > 0`).
-    - Si el saldo final del mes es negativo (`< 0`), se arrastra como deuda/sobregiro
-      pendiente (`saldo_arrastrado < 0`).
-
-    Args:
-        usuario_id (int): Identificador del usuario.
-        periodo_actual (str | None): Periodo `'YYYY-MM'` por cerrar.
-        nuevo_presupuesto_base (int | None): Presupuesto opcional para el nuevo mes.
-        ruta_db (str | Path): Ruta de la base de datos SQLite local.
-
-    Returns:
-        dict[str, Any]: Resumen del cierre con `periodo_cerrado`, `nuevo_periodo`,
-            `saldo_arrastrado`, `tipo_arrastre` y `mensaje`.
-
-    Raises:
-        ValueError: Si el periodo actual no tiene presupuesto configurado.
-    """
+    """Cierra el mes actual y arrastra el saldo positivo o negativo al siguiente."""
     _, _, periodo_origen = _validar_y_descomponer_periodo(periodo_actual)
     resumen = obtener_resumen_financiero(
         ruta_db=ruta_db,
@@ -482,7 +689,7 @@ def obtener_resumen_financiero(  # pylint: disable=too-many-locals
     periodo: str | None = None,
     busqueda: str | None = None,
 ) -> dict[str, Any]:
-    """Calcula las métricas del periodo, gráficas, arrastre y presupuesto diario."""
+    """Calcula las métricas del periodo, gráficas, ritmo, arrastre y diario."""
     _, _, periodo_activo = _validar_y_descomponer_periodo(periodo)
     datos_periodo = obtener_datos_periodo(
         ruta_db,
@@ -579,6 +786,12 @@ def obtener_resumen_financiero(  # pylint: disable=too-many-locals
     }
 
     if presupuesto is None:
+        ritmo_vacio = calcular_ritmo_gasto(
+            porcentaje_consumo=0.0,
+            presupuesto_configurado=False,
+            en_sobregiro=False,
+            periodo=periodo_activo,
+        )
         return {
             "presupuesto_configurado": False,
             "presupuesto_mensual": None,
@@ -594,6 +807,7 @@ def obtener_resumen_financiero(  # pylint: disable=too-many-locals
             "porcentaje_consumo": 0.0,
             "porcentaje_barra": 0.0,
             "en_sobregiro": False,
+            "ritmo_gasto": ritmo_vacio,
             "mensaje_presupuesto": MENSAJE_PRESUPUESTO_NO_ESTABLECIDO,
             "alerta_sobregiro": None,
             **datos_comunes,
@@ -605,6 +819,12 @@ def obtener_resumen_financiero(  # pylint: disable=too-many-locals
     porcentaje_consumo = _calcular_porcentaje_truncado(total_gastado, base_porcentaje)
     en_sobregiro = saldo_disponible < 0
     diario_sugerido = max(0, saldo_disponible // dias_restantes)
+    ritmo_actual = calcular_ritmo_gasto(
+        porcentaje_consumo=porcentaje_consumo,
+        presupuesto_configurado=True,
+        en_sobregiro=en_sobregiro,
+        periodo=periodo_activo,
+    )
 
     return {
         "presupuesto_configurado": True,
@@ -625,6 +845,7 @@ def obtener_resumen_financiero(  # pylint: disable=too-many-locals
         "porcentaje_consumo": porcentaje_consumo,
         "porcentaje_barra": min(porcentaje_consumo, 100.0),
         "en_sobregiro": en_sobregiro,
+        "ritmo_gasto": ritmo_actual,
         "mensaje_presupuesto": None,
         "alerta_sobregiro": MENSAJE_ALERTA_SOBREGIRO if en_sobregiro else None,
         **datos_comunes,
@@ -676,6 +897,45 @@ def exportar_transacciones_csv(
     return nombre_archivo, buffer_csv.getvalue()
 
 
+def exportar_reporte_excel(
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+    *,
+    usuario_id: int = 1,
+    nombre_usuario: str = "Espacio Personal",
+    periodo: str | None = None,
+) -> tuple[str, bytes]:
+    """Genera el archivo Excel (`.xlsx`) de 3 hojas con el reporte del periodo.
+
+    Args:
+        ruta_db (str | Path): Ruta de la base de datos SQLite local.
+        usuario_id (int): Identificador del usuario propietario.
+        nombre_usuario (str): Nombre del titular del reporte.
+        periodo (str | None): Periodo `'YYYY-MM'` por exportar.
+
+    Returns:
+        tuple[str, bytes]: Tupla `(nombre_archivo, contenido_xlsx)` con nombre
+            `'Reporte_Finanzas_YYYY_MM.xlsx'`.
+
+    Raises:
+        ValueError: Si no existen movimientos registrados para exportar.
+    """
+    resumen = obtener_resumen_financiero(
+        ruta_db=ruta_db,
+        usuario_id=usuario_id,
+        periodo=periodo,
+    )
+    if not resumen["transacciones"] and not resumen["ingresos_extra"]:
+        raise ValueError(MENSAJE_CSV_VACIO)
+
+    periodo_slug = str(resumen["periodo_activo"]).replace("-", "_")
+    nombre_archivo = f"Reporte_Finanzas_{periodo_slug}.xlsx"
+    contenido_bytes = construir_archivo_excel_xlsx(
+        resumen,
+        nombre_usuario=nombre_usuario,
+    )
+    return nombre_archivo, contenido_bytes
+
+
 __all__ = [
     "MENSAJE_ALERTA_SOBREGIRO",
     "MENSAJE_CSV_VACIO",
@@ -689,8 +949,11 @@ __all__ = [
     "aplicar_gasto_fijo_al_mes",
     "calcular_periodo_anterior",
     "calcular_periodo_siguiente",
+    "calcular_ritmo_gasto",
     "cerrar_y_avanzar_mes",
+    "dividir_frase_multigasto",
     "es_frase_ingreso_extra",
+    "exportar_reporte_excel",
     "exportar_transacciones_csv",
     "formatear_etiqueta_periodo",
     "formatear_pesos",
