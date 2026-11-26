@@ -1,9 +1,10 @@
 """Módulo de servicios y lógica de negocio para FinanzasPersonales-App.
 
-Orquesta la captura en lenguaje natural (HU-01, HU-02), clasificación temática
-(HU-03), cálculo de balance y métricas del dashboard (HU-04, HU-05), alertas
-preventivas de sobregiro y consumo mayor al 50% (HU-06), filtrado por categoría
-(HU-07) y exportación a archivo plano CSV (HU-08).
+Orquesta la captura en lenguaje natural de gastos e ingresos extra (HU-01,
+HU-02, HU-09), clasificación temática (HU-03), cálculo de balance y métricas
+del dashboard (HU-04, HU-05), alertas preventivas de sobregiro y consumo mayor
+al 50% (HU-06), filtrado por categoría (HU-07), exportación CSV (HU-08),
+aplicación de gastos fijos mensuales (HU-10) y pago de cuotas de créditos (HU-11).
 """
 
 import csv
@@ -16,13 +17,21 @@ from typing import Any, Callable
 from src.clasificador import clasificar_gasto, extraer_concepto
 from src.database import (
     RUTA_DB_DEFECTO,
+    incrementar_cuota_credito,
+    insertar_ingreso_extra,
     insertar_transaccion,
+    listar_creditos,
+    listar_gastos_fijos,
+    listar_ingresos_extra,
     listar_transacciones,
     obtener_presupuesto,
 )
 from src.parser_montos import MENSAJE_MONTO_AMBIGUO, extraer_monto
 
 MENSAJE_GASTO_REGISTRADO: str = "Gasto registrado exitosamente"
+MENSAJE_INGRESO_REGISTRADO: str = "Ingreso extra registrado exitosamente"
+MENSAJE_GASTO_FIJO_APLICADO: str = "Gasto fijo aplicado al mes exitosamente"
+MENSAJE_CUOTA_REGISTRADA: str = "Pago de cuota registrado exitosamente"
 MENSAJE_SIN_MONTO_VALIDO: str = (
     "No se detectó un valor monetario válido. Ingrese el monto del gasto"
 )
@@ -64,6 +73,16 @@ PATRON_INDICADOR_MONTO_O_AMBIGUEDAD: re.Pattern[str] = re.compile(
     r"(\d|\b(?:media|medio|un\s+par\s+de|varias|algunas|lucas?|mil)\b)",
     re.IGNORECASE,
 )
+PATRON_FRASE_INGRESO: re.Pattern[str] = re.compile(
+    r"^(?:ingreso(?:\s+extra)?|abono|abon[eé]|me\s+entraron|me\s+pagaron|"
+    r"recib[ií]|gan[eé])\b",
+    re.IGNORECASE,
+)
+PATRON_PREFIJO_INGRESO: re.Pattern[str] = re.compile(
+    r"^(?:ingreso(?:\s+extra)?|abono|abon[eé]|me\s+entraron|me\s+pagaron|"
+    r"recib[ií]|gan[eé])\s*(?:de\s+|por\s+)?",
+    re.IGNORECASE,
+)
 
 
 def formatear_pesos(valor: int | None) -> str:
@@ -87,7 +106,7 @@ def _calcular_porcentaje_truncado(numerador: int, denominador: int) -> float:
 
     Args:
         numerador (int): Monto parcial o acumulado.
-        denominador (int): Presupuesto mensual total (`> 0`).
+        denominador (int): Presupuesto o capacidad mensual total (`> 0`).
 
     Returns:
         float: Porcentaje con un decimal (ej. `220000 / 600000` -> `36.6`).
@@ -95,6 +114,76 @@ def _calcular_porcentaje_truncado(numerador: int, denominador: int) -> float:
     if denominador <= 0:
         return 0.0
     return int((numerador / denominador) * 1000) / 10.0
+
+
+def es_frase_ingreso_extra(texto: str) -> bool:
+    """Detecta si una frase en lenguaje natural describe un ingreso extra o abono.
+
+    Args:
+        texto (str): Frase ingresada por el usuario.
+
+    Returns:
+        bool: `True` si inicia con verbos/indicadores de ingreso (`'me entraron'`,
+            `'ingreso'`, `'abono'`, `'me pagaron'`).
+    """
+    if not isinstance(texto, str) or not texto.strip():
+        return False
+    return bool(PATRON_FRASE_INGRESO.search(texto.strip()))
+
+
+def registrar_ingreso_desde_texto(
+    texto: str,
+    *,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> dict[str, Any]:
+    """Procesa y registra un ingreso extra o abono en lenguaje natural (HU-09).
+
+    Extrae el monto usando el parser coloquial (`extraer_monto`), limpia el
+    concepto y almacena el abono en la tabla `ingresos_extra`, incrementando
+    el saldo disponible del mes.
+
+    Args:
+        texto (str): Descripción del ingreso (ej. `'me entraron 1.200.000 de trabajo'`).
+        ruta_db (str | Path): Ruta de la base de datos SQLite local.
+
+    Returns:
+        dict[str, Any]: Resultado con `registrado`, `tipo_alerta`, `mensaje`
+            e `ingreso`.
+
+    Raises:
+        ValueError: Si no se detecta un monto válido o si el monto es ambiguo.
+    """
+    if not isinstance(texto, str) or not texto.strip():
+        raise ValueError(MENSAJE_SIN_MONTO_VALIDO)
+
+    if len(texto) <= 280 and not PATRON_INDICADOR_MONTO_O_AMBIGUEDAD.search(texto):
+        raise ValueError(MENSAJE_SIN_MONTO_VALIDO)
+
+    monto = extraer_monto(texto)
+    texto_sin_prefijo = PATRON_PREFIJO_INGRESO.sub("", texto.strip()).strip()
+    concepto_base = extraer_concepto(texto_sin_prefijo or texto)
+    if concepto_base == "Gasto registrado":
+        concepto_base = "Ingreso extra"
+
+    ingreso_id = insertar_ingreso_extra(
+        concepto=concepto_base,
+        monto=monto,
+        ruta_db=ruta_db,
+    )
+
+    return {
+        "registrado": True,
+        "requiere_confirmacion": False,
+        "tipo_operacion": "ingreso",
+        "tipo_alerta": "exito",
+        "mensaje": MENSAJE_INGRESO_REGISTRADO,
+        "alerta_sobregiro": None,
+        "ingreso": {
+            "id": ingreso_id,
+            "concepto": concepto_base,
+            "monto": monto,
+        },
+    }
 
 
 def registrar_gasto_desde_texto(
@@ -106,18 +195,6 @@ def registrar_gasto_desde_texto(
 ) -> dict[str, Any]:
     """Procesa, valida y registra un gasto ingresado en lenguaje natural.
 
-    Aplica las reglas de negocio de HU-01, HU-02, HU-03 y HU-06:
-    - Si la frase carece por completo de números y de cuantificadores monetarios
-      (ej. `'tanqueé la moto en la mañana'`), lanza `ValueError` con el mensaje
-      de HU-01 Escenario 2.
-    - Si la frase contiene cuantificadores ambiguos o inválidos (ej. `'gasté
-      media luca en dulces'`), propaga el `ValueError` de HU-02 Escenario 2.
-    - Si hay presupuesto activo y el gasto supera el 50% del presupuesto sin
-      haber sido confirmado (`confirmado=False`), detiene la inserción y retorna
-      la solicitud de confirmación preventiva (HU-06 Escenario 2).
-    - Si el gasto deja el saldo restante en negativo, registra la transacción
-      y activa la alerta de sobregiro (HU-06 Escenario 1).
-
     Args:
         texto (str): Frase cotidiana ingresada por el usuario.
         confirmado (bool): `True` si el usuario ya confirmó un gasto mayor al 50%.
@@ -125,9 +202,7 @@ def registrar_gasto_desde_texto(
         cliente_llm (Callable[[dict[str, Any]], str] | None): Cliente LLM opcional.
 
     Returns:
-        dict[str, Any]: Resultado de la operación con claves `registrado`,
-            `requiere_confirmacion`, `tipo_alerta`, `mensaje`, `alerta_sobregiro`,
-            `transaccion` y `porcentaje_presupuesto`.
+        dict[str, Any]: Resultado de la operación con estado, alertas y transacción.
 
     Raises:
         ValueError: Si no se detecta un monto válido (HU-01 Esc. 2) o si el monto
@@ -179,11 +254,15 @@ def registrar_gasto_desde_texto(
         ruta_db=ruta_db,
     )
 
-    todas_tx = listar_transacciones(ruta_db=ruta_db)
-    total_gastado = sum(int(item["monto"]) for item in todas_tx)
+    total_gastado = sum(
+        int(item["monto"]) for item in listar_transacciones(ruta_db=ruta_db)
+    )
+    total_ingresos = sum(
+        int(item["monto"]) for item in listar_ingresos_extra(ruta_db=ruta_db)
+    )
 
     alerta_sobregiro: str | None = None
-    if presupuesto is not None and (presupuesto - total_gastado) < 0:
+    if presupuesto is not None and (presupuesto + total_ingresos - total_gastado) < 0:
         alerta_sobregiro = MENSAJE_ALERTA_SOBREGIRO
 
     return {
@@ -207,26 +286,129 @@ def registrar_gasto_desde_texto(
     }
 
 
-def obtener_resumen_financiero(
+def aplicar_gasto_fijo_al_mes(
+    gasto_fijo_id: int,
+    *,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> dict[str, Any]:
+    """Aplica un gasto fijo mensual registrándolo como transacción del mes (HU-10).
+
+    Args:
+        gasto_fijo_id (int): Identificador del gasto fijo recurrente.
+        ruta_db (str | Path): Ruta de la base de datos SQLite local.
+
+    Returns:
+        dict[str, Any]: Diccionario con confirmación y datos de la transacción.
+
+    Raises:
+        ValueError: Si el gasto fijo especificado no existe.
+    """
+    gastos_fijos = listar_gastos_fijos(ruta_db=ruta_db)
+    seleccionado = next(
+        (item for item in gastos_fijos if item["id"] == gasto_fijo_id),
+        None,
+    )
+    if seleccionado is None:
+        raise ValueError("El gasto fijo especificado no existe")
+
+    concepto_tx = f"Gasto fijo: {seleccionado['nombre']}"
+    tx_id = insertar_transaccion(
+        concepto=concepto_tx,
+        monto=int(seleccionado["monto"]),
+        categoria=str(seleccionado["categoria"]),
+        es_ambiguo=False,
+        ruta_db=ruta_db,
+    )
+
+    return {
+        "registrado": True,
+        "tipo_alerta": "exito",
+        "mensaje": MENSAJE_GASTO_FIJO_APLICADO,
+        "transaccion": {
+            "id": tx_id,
+            "concepto": concepto_tx,
+            "monto": int(seleccionado["monto"]),
+            "categoria": str(seleccionado["categoria"]),
+        },
+    }
+
+
+def registrar_pago_cuota_credito(
+    credito_id: int,
+    *,
+    ruta_db: str | Path = RUTA_DB_DEFECTO,
+) -> dict[str, Any]:
+    """Registra el pago de una cuota mensual de un crédito activo (HU-11).
+
+    Incrementa en +1 las cuotas pagadas del crédito e inserta la transacción
+    correspondiente en el historial de gastos del mes.
+
+    Args:
+        credito_id (int): Identificador del crédito.
+        ruta_db (str | Path): Ruta de la base de datos SQLite local.
+
+    Returns:
+        dict[str, Any]: Datos del crédito actualizado y la transacción creada.
+
+    Raises:
+        ValueError: Si el crédito no existe o ya tiene todas sus cuotas pagadas.
+    """
+    credito = incrementar_cuota_credito(credito_id, ruta_db=ruta_db)
+    concepto_tx = (
+        f"Cuota {credito['cuotas_pagadas']}/{credito['total_cuotas']}: "
+        f"{credito['nombre']}"
+    )
+    tx_id = insertar_transaccion(
+        concepto=concepto_tx,
+        monto=int(credito["valor_cuota"]),
+        categoria=str(credito["categoria"]),
+        es_ambiguo=False,
+        ruta_db=ruta_db,
+    )
+
+    return {
+        "registrado": True,
+        "tipo_alerta": "exito",
+        "mensaje": MENSAJE_CUOTA_REGISTRADA,
+        "credito": credito,
+        "transaccion": {
+            "id": tx_id,
+            "concepto": concepto_tx,
+            "monto": int(credito["valor_cuota"]),
+            "categoria": str(credito["categoria"]),
+        },
+    }
+
+
+def obtener_resumen_financiero(  # pylint: disable=too-many-locals
     categoria_filtro: str | None = None,
     ruta_db: str | Path = RUTA_DB_DEFECTO,
 ) -> dict[str, Any]:
-    """Calcula todas las métricas del panel web y el listado filtrado (HU-04, HU-07).
+    """Calcula las métricas del panel web, ingresos extra, gastos fijos y créditos.
 
     Args:
-        categoria_filtro (str | None): Categoría seleccionada para filtrar la
-            tabla (`None`, `""` o `'Todas'` para mostrar todo el historial).
+        categoria_filtro (str | None): Categoría seleccionada para filtrar la tabla.
         ruta_db (str | Path): Ruta del archivo SQLite local.
 
     Returns:
-        dict[str, Any]: Diccionario con presupuesto, total gastado, saldo
-            disponible, textos formateados, porcentaje para la barra de progreso,
-            estado de sobregiro, transacciones filtradas, subtotal del filtro y
-            mensajes de aviso correspondientes.
+        dict[str, Any]: Estado financiero consolidado del mes.
     """
     presupuesto = obtener_presupuesto(ruta_db)
     todas_transacciones = listar_transacciones(ruta_db=ruta_db)
     total_gastado = sum(int(item["monto"]) for item in todas_transacciones)
+
+    ingresos_extra = listar_ingresos_extra(ruta_db=ruta_db)
+    total_ingresos_extra = sum(int(item["monto"]) for item in ingresos_extra)
+
+    gastos_fijos = listar_gastos_fijos(ruta_db=ruta_db)
+    total_gastos_fijos = sum(int(item["monto"]) for item in gastos_fijos)
+
+    creditos = listar_creditos(ruta_db=ruta_db)
+    total_cuotas_activas = sum(
+        int(item["valor_cuota"])
+        for item in creditos
+        if not item["pagado_completo"]
+    )
 
     filtro_limpio = (
         categoria_filtro.strip()
@@ -247,11 +429,30 @@ def obtener_resumen_financiero(
             f"'{filtro_limpio}' en este periodo"
         )
 
+    datos_comunes: dict[str, Any] = {
+        "ingresos_extra": ingresos_extra,
+        "total_ingresos_extra": total_ingresos_extra,
+        "total_ingresos_extra_fmt": f"+{formatear_pesos(total_ingresos_extra)}",
+        "gastos_fijos": gastos_fijos,
+        "total_gastos_fijos": total_gastos_fijos,
+        "total_gastos_fijos_fmt": formatear_pesos(total_gastos_fijos),
+        "creditos": creditos,
+        "total_cuotas_activas": total_cuotas_activas,
+        "total_cuotas_activas_fmt": formatear_pesos(total_cuotas_activas),
+        "categoria_activa": filtro_limpio,
+        "transacciones": transacciones_filtradas,
+        "subtotal_filtrado": subtotal_filtrado,
+        "subtotal_filtrado_fmt": formatear_pesos(subtotal_filtrado),
+        "mensaje_filtro_vacio": mensaje_filtro_vacio,
+    }
+
     if presupuesto is None:
         return {
             "presupuesto_configurado": False,
             "presupuesto_mensual": None,
             "presupuesto_fmt": "?",
+            "capacidad_total": None,
+            "capacidad_total_fmt": "?",
             "total_gastado": total_gastado,
             "total_gastado_fmt": formatear_pesos(total_gastado),
             "saldo_disponible": None,
@@ -261,21 +462,20 @@ def obtener_resumen_financiero(
             "en_sobregiro": False,
             "mensaje_presupuesto": MENSAJE_PRESUPUESTO_NO_ESTABLECIDO,
             "alerta_sobregiro": None,
-            "categoria_activa": filtro_limpio,
-            "transacciones": transacciones_filtradas,
-            "subtotal_filtrado": subtotal_filtrado,
-            "subtotal_filtrado_fmt": formatear_pesos(subtotal_filtrado),
-            "mensaje_filtro_vacio": mensaje_filtro_vacio,
+            **datos_comunes,
         }
 
-    saldo_disponible = presupuesto - total_gastado
-    porcentaje_consumo = _calcular_porcentaje_truncado(total_gastado, presupuesto)
+    capacidad_total = presupuesto + total_ingresos_extra
+    saldo_disponible = capacidad_total - total_gastado
+    porcentaje_consumo = _calcular_porcentaje_truncado(total_gastado, capacidad_total)
     en_sobregiro = saldo_disponible < 0
 
     return {
         "presupuesto_configurado": True,
         "presupuesto_mensual": presupuesto,
         "presupuesto_fmt": formatear_pesos(presupuesto),
+        "capacidad_total": capacidad_total,
+        "capacidad_total_fmt": formatear_pesos(capacidad_total),
         "total_gastado": total_gastado,
         "total_gastado_fmt": formatear_pesos(total_gastado),
         "saldo_disponible": saldo_disponible,
@@ -289,11 +489,7 @@ def obtener_resumen_financiero(
         "en_sobregiro": en_sobregiro,
         "mensaje_presupuesto": None,
         "alerta_sobregiro": MENSAJE_ALERTA_SOBREGIRO if en_sobregiro else None,
-        "categoria_activa": filtro_limpio,
-        "transacciones": transacciones_filtradas,
-        "subtotal_filtrado": subtotal_filtrado,
-        "subtotal_filtrado_fmt": formatear_pesos(subtotal_filtrado),
-        "mensaje_filtro_vacio": mensaje_filtro_vacio,
+        **datos_comunes,
     }
 
 
@@ -306,7 +502,6 @@ def exportar_transacciones_csv(
     Args:
         ruta_db (str | Path): Ruta del archivo SQLite local.
         mes_anio (str | None): Sufijo opcional de periodo (ej. `'octubre_2026'`).
-            Si es `None`, se construye con el mes y año actuales en español.
 
     Returns:
         tuple[str, str]: Tupla `(nombre_archivo, contenido_csv)` donde
@@ -314,8 +509,7 @@ def exportar_transacciones_csv(
             `contenido_csv` incluye los encabezados oficiales del reporte.
 
     Raises:
-        ValueError: Si la base de datos no contiene ninguna transacción registrada
-            (HU-08 Escenario 2).
+        ValueError: Si la base de datos no contiene ninguna transacción registrada.
     """
     transacciones = listar_transacciones(ruta_db=ruta_db)
     if not transacciones:
@@ -353,12 +547,19 @@ def exportar_transacciones_csv(
 __all__ = [
     "MENSAJE_ALERTA_SOBREGIRO",
     "MENSAJE_CSV_VACIO",
+    "MENSAJE_CUOTA_REGISTRADA",
+    "MENSAJE_GASTO_FIJO_APLICADO",
     "MENSAJE_GASTO_REGISTRADO",
+    "MENSAJE_INGRESO_REGISTRADO",
     "MENSAJE_MONTO_AMBIGUO",
     "MENSAJE_PRESUPUESTO_NO_ESTABLECIDO",
     "MENSAJE_SIN_MONTO_VALIDO",
+    "aplicar_gasto_fijo_al_mes",
+    "es_frase_ingreso_extra",
     "exportar_transacciones_csv",
     "formatear_pesos",
     "obtener_resumen_financiero",
     "registrar_gasto_desde_texto",
+    "registrar_ingreso_desde_texto",
+    "registrar_pago_cuota_credito",
 ]

@@ -160,11 +160,20 @@ Asistente usado: Google Antigravity (Modo Agente y Chat)
 - **Verificación:** Se revisó la coherencia de los criterios de aceptación Gherkin de `HU-09`, `HU-10` y `HU-11` en `README.md` y se verificó con `pytest -v` que las 67 pruebas actuales sigan en verde antes de iniciar la implementación del backend.
 - **Commit relacionado:** `docs(sdlc-etapa1): especificar HU-09, HU-10, HU-11 y arquitectura SQLite evolucionada en README y bitacora`
 
+### Entrada 18 (SDLC Etapa 2 — Backend SQLite parametrizado y Servicios para HU-09, HU-10 y HU-11)
+
+- **Fecha:** 2026-11-25
+- **Prompt o sugerencia:** *"Implementar en `src/database.py` y `src/servicios.py` las tablas y operaciones parametrizadas para `ingresos_extra` (HU-09), `gastos_fijos` (HU-10) y `creditos` a cuotas (HU-11), junto con la suite `tests/test_evolucion_sdlc.py` y la actualización sincronizada de `registro_pruebas.md` y `revision_seguridad.md`."*
+- **Decisión:** Aceptada
+- **Por qué:** Todas las nuevas operaciones usan marcadores `?` y restricciones `CHECK` en SQLite, validando que `bool` no pase como `int` (`_es_entero_positivo`) y bloqueando pagos adicionales cuando `cuotas_pagadas >= total_cuotas` (`HU-11` Escenario 2). Además, la integración en `obtener_resumen_financiero` mantiene intactas las 67 pruebas previas y suma 6 nuevas pruebas para un total de 73 pruebas en verde.
+- **Verificación:** Se ejecutó `pytest -v` pasando las 73 pruebas (`73 passed`), `ruff check --select E,F,B,S .` con `0` avisos y `pylint app.py src/ tests/` con `10.00/10`.
+- **Commit relacionado:** `feat(sdlc-etapa2): implementar backend SQLite y servicios para ingresos extra, gastos fijos y creditos (HU-09 a HU-11)`
+
 ## Resumen
 
 | Decisión | Cantidad |
 |---|---|
-| Aceptadas | 7 |
+| Aceptadas | 8 |
 | Aceptadas con cambios | 9 |
 | Rechazadas | 1 |
 
